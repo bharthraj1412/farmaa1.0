@@ -1,0 +1,27 @@
+# Root gitignore for Farmaa project
+
+# Ignore build folders
+**/build/
+**/dist/
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/apks/
+**/*.apk
+
+# Ignore python environments
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+
+# Ignore IDE files
+**/.idea/
+**/.vscode/
+
+# Ignore environment/secret files
+**/.env
+**/.env.development
+**/.env.production
+**/*.log
