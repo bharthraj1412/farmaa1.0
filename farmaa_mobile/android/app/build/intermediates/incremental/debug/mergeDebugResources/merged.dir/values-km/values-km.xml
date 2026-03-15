@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:ns1="urn:oasis:names:tc:xliff:document:1.2">
+    <string msgid="7903180715631665059" name="abc_action_bar_home_description">"​ទៅទំព័រដើម"</string>
+    <string msgid="6794660482873516081" name="abc_action_bar_up_description">"រំកិលឡើងលើ"</string>
+    <string msgid="1155814932213556626" name="abc_action_menu_overflow_description">"ជម្រើសច្រើនទៀត"</string>
+    <string msgid="2571498368472823490" name="abc_action_mode_done">"រួចរាល់"</string>
+    <string msgid="3732416590524162402" name="abc_activity_chooser_view_see_all">"មើលទាំងអស់"</string>
+    <string msgid="1798588241954930982" name="abc_activitychooserview_choose_application">"ជ្រើសរើស​កម្មវិធី​​"</string>
+    <string msgid="3403923230105792483" name="abc_capital_off">"បិទ"</string>
+    <string msgid="7831734969929204599" name="abc_capital_on">"បើក"</string>
+    <string msgid="5725160506500770567" name="abc_menu_alt_shortcut_label">"Alt+"</string>
+    <string msgid="944415252197684443" name="abc_menu_ctrl_shortcut_label">"Ctrl+"</string>
+    <string msgid="129742188101734366" name="abc_menu_delete_shortcut_label">"លុប"</string>
+    <string msgid="6840127756824236027" name="abc_menu_enter_shortcut_label">"enter"</string>
+    <string msgid="4974283687810130415" name="abc_menu_function_shortcut_label">"Function+"</string>
+    <string msgid="8046416353848716905" name="abc_menu_meta_shortcut_label">"Meta+"</string>
+    <string msgid="3271697756921353410" name="abc_menu_shift_shortcut_label">"Shift+"</string>
+    <string msgid="2304645930658438191" name="abc_menu_space_shortcut_label">"space"</string>
+    <string msgid="8327365089695024394" name="abc_menu_sym_shortcut_label">"Sym+"</string>
+    <string msgid="3570106412128999382" name="abc_prepend_shortcut_label">"Menu+"</string>
+    <string msgid="940844115270746197" name="abc_search_hint">"ស្វែងរក…"</string>
+    <string msgid="1769270744562318534" name="abc_searchview_description_clear">"សម្អាត​សំណួរ"</string>
+    <string msgid="908784302972860853" name="abc_searchview_description_query">"ស្វែងរកសំណួរ​"</string>
+    <string msgid="5466662225065974044" name="abc_searchview_description_search">"ស្វែងរក"</string>
+    <string msgid="8203855622131699655" name="abc_searchview_description_submit">"ដាក់បញ្ជូន​សំណួរ"</string>
+    <string msgid="3478748990613108725" name="abc_searchview_description_voice">"ស្វែងរក​តាម​សំឡេង"</string>
+    <string msgid="2650565705514630347" name="abc_shareactionprovider_share_with">"ចែករំលែក​ជា​មួយ"</string>
+    <string msgid="9009661856846212431" name="abc_shareactionprovider_share_with_application">"ចែក​រំលែក​ជា​មួយ <ns1:g id="APPLICATION_NAME">%s</ns1:g>"</string>
+    <string msgid="6389460216547290468" name="abc_toolbar_collapse_description">"បង្រួម"</string>
+    <string msgid="8397015543330865059" name="android.credentials.TYPE_PASSWORD_CREDENTIAL">"ពាក្យសម្ងាត់"</string>
+    <string msgid="3929015085059320822" name="androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL">"កូដសម្ងាត់"</string>
+    <string msgid="881409763997275156" name="call_notification_answer_action">"ឆ្លើយ"</string>
+    <string msgid="8793775615905189152" name="call_notification_answer_video_action">"វីដេអូ"</string>
+    <string msgid="3229508546291798546" name="call_notification_decline_action">"បដិសេធ"</string>
+    <string msgid="2659457946726154263" name="call_notification_hang_up_action">"ដាក់​ចុះ"</string>
+    <string msgid="6107532579223922871" name="call_notification_incoming_text">"ការ​ហៅ​ចូល"</string>
+    <string msgid="8623827134497363134" name="call_notification_ongoing_text">"ការ​ហៅដែលកំពុងដំណើរការ"</string>
+    <string msgid="59049573811482460" name="call_notification_screening_text">"កំពុងពិនិត្យការ​ហៅ​ចូល"</string>
+    <string msgid="2523291102206661146" name="common_google_play_services_enable_button">បើក</string>
+    <string msgid="227660514972886228" name="common_google_play_services_enable_text">%1$s នឹងមិនដំណើរការទេ លុះត្រាតែអ្នកបើកសេវាកម្ម Google Play។</string>
+    <string msgid="5122002158466380389" name="common_google_play_services_enable_title">បើកសេវាកម្ម Google Play</string>
+    <string msgid="7153882981874058840" name="common_google_play_services_install_button">ដំឡើង</string>
+    <string name="common_google_play_services_install_text">%1$s នឹងមិនដំណើរការទេ ប្រសិនបើមិនមានសេវាកម្មនានារបស់ Google Play ដែលបានបាត់ពីឧបករណ៍របស់អ្នក។</string>
+    <string msgid="7215213145546190223" name="common_google_play_services_install_title">ទាញយកសេវាកម្ម Google Play</string>
+    <string name="common_google_play_services_notification_channel_name">លទ្ធភាព​ប្រើប្រាស់សេវាកម្ម Google Play</string>
+    <string name="common_google_play_services_notification_ticker">កំហុស​​សេវាកម្ម​ Google កម្សាន្ត</string>
+    <string name="common_google_play_services_unknown_issue">%1$s កំពុងមានបញ្ហាជាមួយសេវាកម្មរបស់ Google Play ។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។</string>
+    <string name="common_google_play_services_unsupported_text">%1$s នឹងមិនដំណើរការដោយគ្មានសេវាកម្មរបស់ Google Play ដែលឧបករណ៍របស់អ្នកមិនគាំទ្រនោះទេ។</string>
+    <string msgid="6556509956452265614" name="common_google_play_services_update_button">ធ្វើបច្ចុប្បន្នភាព</string>
+    <string msgid="9053896323427875356" name="common_google_play_services_update_text">%1$s នឹងមិនដំណើរការទេ លុះត្រាតែអ្នកធ្វើបច្ចុប្បន្នភាពសេវាកម្ម Google Play។</string>
+    <string msgid="6006316683626838685" name="common_google_play_services_update_title">អាប់ដេតសេវាកម្ម Google Play</string>
+    <string name="common_google_play_services_updating_text">%1$s នឹងមិនដំណើរការទេ បើមិនមានសេវាកម្ម Google Play ដោយសារតែវាកំពុងអាប់ដេត។</string>
+    <string name="common_google_play_services_wear_update_text">តម្រូវឲ្យមានកំណែថ្មីនៃសេវាកម្ម Google Play។ វានឹងអាប់ដេតដោយខ្លួនវានៅពេលបន្តិចទៀតនេះ។</string>
+    <string name="common_open_on_phone">បើកតាមទូរស័ព្ទ</string>
+    <string name="common_signin_button_text">ចូល</string>
+    <string name="common_signin_button_text_long">ចូលដោយប្រើ Google</string>
+    <string msgid="6083905920877235314" name="copy">"ចម្លង"</string>
+    <string msgid="3260749812566568062" name="copy_toast_msg">"បាន​ចម្លង​តំណ​ទៅឃ្លីបបត"</string>
+    <string msgid="2427401033573778270" name="expand_button_title">"កម្រិតខ្ពស់"</string>
+    <string msgid="4566929209979330987" name="fallback_menu_item_copy_link">"ចម្លង​តំណ"</string>
+    <string msgid="3413186855122069269" name="fallback_menu_item_open_in_browser">"បើក​នៅក្នុង​កម្មវិធី​រុករកតាម​អ៊ីនធឺណិត"</string>
+    <string msgid="7145444925855055364" name="fallback_menu_item_share_link">"តំណចែករំលែក"</string>
+    <string msgid="6573031135582639649" name="not_set">"មិនបានកំណត់"</string>
+    <string msgid="6685851473431805375" name="preference_copied">"\"<ns1:g id="SUMMARY">%1$s</ns1:g>\" បានចម្លងទៅ​ឃ្លីបបត។"</string>
+    <string msgid="730395136688082741" name="search_menu_title">"ស្វែងរក"</string>
+    <string msgid="6277540029070332960" name="status_bar_notification_info_overflow">"999+"</string>
+    <string msgid="9167775378838880170" name="summary_collapsed_preference_list">"<ns1:g id="CURRENT_ITEMS">%1$s</ns1:g>, <ns1:g id="ADDED_ITEMS">%2$s</ns1:g>"</string>
+    <string msgid="3140233346420563315" name="v7_preference_off">"បិទ"</string>
+    <string msgid="89551595707643515" name="v7_preference_on">"បើក"</string>
+    <string name="wallet_buy_button_place_holder">ទិញ​ជា​មួយ Google</string>
+</resources>

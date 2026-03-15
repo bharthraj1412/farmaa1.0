@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "farmaa.app-mergeDebugResources-76:/values-port/values-port.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\bhara\\.gradle\\caches\\8.14\\transforms\\de4a82b7b688b1569f6007afb6efdc80\\transformed\\appcompat-1.1.0\\res\\values-port\\values-port.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "55",
+                        "endOffsets": "106"
+                    }
+                }
+            ]
+        }
+    ]
+}

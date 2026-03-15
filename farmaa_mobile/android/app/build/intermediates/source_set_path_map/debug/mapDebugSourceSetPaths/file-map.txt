@@ -1,0 +1,81 @@
+farmaa.app-lifecycle-process-2.7.0-0 C:\Users\bhara\.gradle\caches\8.14\transforms\02317f23ec190a04dc5375ccec343a6b\transformed\lifecycle-process-2.7.0\res
+farmaa.app-credentials-play-services-auth-1.2.0-rc01-1 C:\Users\bhara\.gradle\caches\8.14\transforms\0beeea399e230fa7e1ba89a2ec629e9f\transformed\credentials-play-services-auth-1.2.0-rc01\res
+farmaa.app-datastore-release-2 C:\Users\bhara\.gradle\caches\8.14\transforms\0cc8f0d4121fffd084a4f8d7f4379680\transformed\datastore-release\res
+farmaa.app-lifecycle-livedata-core-2.7.0-3 C:\Users\bhara\.gradle\caches\8.14\transforms\0f06a1286087db0d715ea7a6bf2b6b5d\transformed\lifecycle-livedata-core-2.7.0\res
+farmaa.app-core-1.17.0-4 C:\Users\bhara\.gradle\caches\8.14\transforms\1254067b29c64eacd4196364a691c0a1\transformed\core-1.17.0\res
+farmaa.app-play-services-maps-17.0.0-5 C:\Users\bhara\.gradle\caches\8.14\transforms\14fb611e4abe1a1086478a69ef5e0048\transformed\play-services-maps-17.0.0\res
+farmaa.app-credentials-1.2.0-rc01-6 C:\Users\bhara\.gradle\caches\8.14\transforms\161057d20dc04d5a14360ec4a296e390\transformed\credentials-1.2.0-rc01\res
+farmaa.app-firebase-messaging-25.0.1-7 C:\Users\bhara\.gradle\caches\8.14\transforms\2150abfbad73838a818ae4df6690c206\transformed\firebase-messaging-25.0.1\res
+farmaa.app-fragment-1.7.1-8 C:\Users\bhara\.gradle\caches\8.14\transforms\299e94cf3e525631243716bff77836a9\transformed\fragment-1.7.1\res
+farmaa.app-lifecycle-runtime-ktx-2.7.0-9 C:\Users\bhara\.gradle\caches\8.14\transforms\2b4995625d1e01acd0eb0f2e4405734b\transformed\lifecycle-runtime-ktx-2.7.0\res
+farmaa.app-savedstate-ktx-1.2.1-10 C:\Users\bhara\.gradle\caches\8.14\transforms\2c323bc022a18bc21ea07bac1a93171b\transformed\savedstate-ktx-1.2.1\res
+farmaa.app-media-1.1.0-11 C:\Users\bhara\.gradle\caches\8.14\transforms\2d7441bd99e4c6cf7e3faf8e76af0012\transformed\media-1.1.0\res
+farmaa.app-appcompat-resources-1.1.0-12 C:\Users\bhara\.gradle\caches\8.14\transforms\3117af091c8e88e2d8cea2fa0f3e30c1\transformed\appcompat-resources-1.1.0\res
+farmaa.app-core-common-2.0.3-13 C:\Users\bhara\.gradle\caches\8.14\transforms\3f792e09f16bbf522f52bc14c670e1b9\transformed\core-common-2.0.3\res
+farmaa.app-window-java-1.2.0-14 C:\Users\bhara\.gradle\caches\8.14\transforms\477fe48617d78c53c7f5e72c5de895d1\transformed\window-java-1.2.0\res
+farmaa.app-ads-adservices-java-1.1.0-beta11-15 C:\Users\bhara\.gradle\caches\8.14\transforms\4975d1e9674cce7f22469e3afa38d34f\transformed\ads-adservices-java-1.1.0-beta11\res
+farmaa.app-ads-adservices-1.1.0-beta11-16 C:\Users\bhara\.gradle\caches\8.14\transforms\49c21d0cde976b9c0b8c378c12ae5cbc\transformed\ads-adservices-1.1.0-beta11\res
+farmaa.app-lifecycle-viewmodel-2.7.0-17 C:\Users\bhara\.gradle\caches\8.14\transforms\4d648aa1a8509ef9d97fa12405ac9afb\transformed\lifecycle-viewmodel-2.7.0\res
+farmaa.app-coordinatorlayout-1.0.0-18 C:\Users\bhara\.gradle\caches\8.14\transforms\54088568f4f44a3a572405123809c447\transformed\coordinatorlayout-1.0.0\res
+farmaa.app-core-runtime-2.2.0-19 C:\Users\bhara\.gradle\caches\8.14\transforms\54ce6f74f13c2ae4e67b452a61f7ffad\transformed\core-runtime-2.2.0\res
+farmaa.app-core-ktx-1.17.0-20 C:\Users\bhara\.gradle\caches\8.14\transforms\5f6d22480866511e96d112cf6b09e3fe\transformed\core-ktx-1.17.0\res
+farmaa.app-lifecycle-livedata-core-ktx-2.7.0-21 C:\Users\bhara\.gradle\caches\8.14\transforms\5fa794463331231e31f007b86f17273b\transformed\lifecycle-livedata-core-ktx-2.7.0\res
+farmaa.app-core-1.0.10-22 C:\Users\bhara\.gradle\caches\8.14\transforms\664e61016f315bd079837f17c420ea7d\transformed\core-1.0.10\res
+farmaa.app-profileinstaller-1.4.0-23 C:\Users\bhara\.gradle\caches\8.14\transforms\6761ab26253b9cb5d70051436594c011\transformed\profileinstaller-1.4.0\res
+farmaa.app-transition-1.4.1-24 C:\Users\bhara\.gradle\caches\8.14\transforms\7a9c2bfd166b3dc11a1543612be7155c\transformed\transition-1.4.1\res
+farmaa.app-exifinterface-1.4.2-25 C:\Users\bhara\.gradle\caches\8.14\transforms\877b4c77a7b859c510eb277bfab71837\transformed\exifinterface-1.4.2\res
+farmaa.app-activity-1.12.4-26 C:\Users\bhara\.gradle\caches\8.14\transforms\890b8358e375f324bb552b7f2518a0f9\transformed\activity-1.12.4\res
+farmaa.app-play-services-auth-21.1.0-27 C:\Users\bhara\.gradle\caches\8.14\transforms\8c29be21fcec85323e408fe5cb3d7db6\transformed\play-services-auth-21.1.0\res
+farmaa.app-play-services-wallet-18.1.3-28 C:\Users\bhara\.gradle\caches\8.14\transforms\8ff8c45f36a326e9c0ac59ec90c75303\transformed\play-services-wallet-18.1.3\res
+farmaa.app-slidingpanelayout-1.2.0-29 C:\Users\bhara\.gradle\caches\8.14\transforms\93b970c348f588c94c07c266ff435695\transformed\slidingpanelayout-1.2.0\res
+farmaa.app-lifecycle-viewmodel-savedstate-2.7.0-30 C:\Users\bhara\.gradle\caches\8.14\transforms\9750db4746d425d6195323784ab81b1e\transformed\lifecycle-viewmodel-savedstate-2.7.0\res
+farmaa.app-standard-core-1.7.10-31 C:\Users\bhara\.gradle\caches\8.14\transforms\9c7ed9da1bcbc736f72117e17779a8fc\transformed\standard-core-1.7.10\res
+farmaa.app-startup-runtime-1.1.1-32 C:\Users\bhara\.gradle\caches\8.14\transforms\9ff486bc58a3243deb3ed17e1a385c28\transformed\startup-runtime-1.1.1\res
+farmaa.app-datastore-preferences-release-33 C:\Users\bhara\.gradle\caches\8.14\transforms\a05bd063f44a31e59fac2f60b5d18b02\transformed\datastore-preferences-release\res
+farmaa.app-localbroadcastmanager-1.1.0-34 C:\Users\bhara\.gradle\caches\8.14\transforms\a2ec9a7161dc1d99af015e1641b385a3\transformed\localbroadcastmanager-1.1.0\res
+farmaa.app-tracing-1.2.0-35 C:\Users\bhara\.gradle\caches\8.14\transforms\a8ef41f0a82e0313f128ba3dc4c4d8a0\transformed\tracing-1.2.0\res
+farmaa.app-play-services-base-18.5.0-36 C:\Users\bhara\.gradle\caches\8.14\transforms\addb1e3d2f08e36921782e7eac8c9edb\transformed\play-services-base-18.5.0\res
+farmaa.app-core-1.0.0-37 C:\Users\bhara\.gradle\caches\8.14\transforms\b3900285f4aeb6443b918ae016a9da69\transformed\core-1.0.0\res
+farmaa.app-window-1.2.0-38 C:\Users\bhara\.gradle\caches\8.14\transforms\b3fab0ad58f0185d9c99c19dbd5ab4e2\transformed\window-1.2.0\res
+farmaa.app-datastore-core-release-39 C:\Users\bhara\.gradle\caches\8.14\transforms\b66fe0f31207e774875e1ea84f7a2862\transformed\datastore-core-release\res
+farmaa.app-activity-ktx-1.12.4-40 C:\Users\bhara\.gradle\caches\8.14\transforms\b9ba4a8a1cc1cbc3e929b3b126f2c993\transformed\activity-ktx-1.12.4\res
+farmaa.app-play-services-basement-18.5.0-41 C:\Users\bhara\.gradle\caches\8.14\transforms\c8b90f8f421ba3a6675d83dfb2bb1ec0\transformed\play-services-basement-18.5.0\res
+farmaa.app-navigationevent-42 C:\Users\bhara\.gradle\caches\8.14\transforms\c935baf2a8dadae288915246d4143dae\transformed\navigationevent\res
+farmaa.app-annotation-experimental-1.4.1-43 C:\Users\bhara\.gradle\caches\8.14\transforms\ccad7865e9d7eaa598e840a8bd5e90fd\transformed\annotation-experimental-1.4.1\res
+farmaa.app-datastore-preferences-core-release-44 C:\Users\bhara\.gradle\caches\8.14\transforms\cdb062d2e9b7230db60c2e7f49fdc4fc\transformed\datastore-preferences-core-release\res
+farmaa.app-firebase-common-22.0.1-45 C:\Users\bhara\.gradle\caches\8.14\transforms\d0849062f2439f6d41a77fbe40e40175\transformed\firebase-common-22.0.1\res
+farmaa.app-security-crypto-1.1.0-alpha06-46 C:\Users\bhara\.gradle\caches\8.14\transforms\d12ce34d36618f25b25b4a2d3bb49a9d\transformed\security-crypto-1.1.0-alpha06\res
+farmaa.app-browser-1.9.0-47 C:\Users\bhara\.gradle\caches\8.14\transforms\d35af21ed384ee2925e76fdce2f4435d\transformed\browser-1.9.0\res
+farmaa.app-savedstate-1.2.1-48 C:\Users\bhara\.gradle\caches\8.14\transforms\d74722268bc402740ad1084bc0e89fee\transformed\savedstate-1.2.1\res
+farmaa.app-appcompat-1.1.0-49 C:\Users\bhara\.gradle\caches\8.14\transforms\de4a82b7b688b1569f6007afb6efdc80\transformed\appcompat-1.1.0\res
+farmaa.app-lifecycle-runtime-2.7.0-50 C:\Users\bhara\.gradle\caches\8.14\transforms\e6618e7e8703d582d3f886643109377a\transformed\lifecycle-runtime-2.7.0\res
+farmaa.app-recyclerview-1.0.0-51 C:\Users\bhara\.gradle\caches\8.14\transforms\e8bc78d610a137e16672e9f1fdc23da8\transformed\recyclerview-1.0.0\res
+farmaa.app-lifecycle-viewmodel-ktx-2.7.0-52 C:\Users\bhara\.gradle\caches\8.14\transforms\e9a2a20d77f4792ccce10e1f73b2032d\transformed\lifecycle-viewmodel-ktx-2.7.0\res
+farmaa.app-preference-1.2.1-53 C:\Users\bhara\.gradle\caches\8.14\transforms\ed8f3fd4b3439e745afd0336e7f61ae3\transformed\preference-1.2.1\res
+farmaa.app-core-viewtree-1.0.0-54 C:\Users\bhara\.gradle\caches\8.14\transforms\f2c4fb617a41349d82b076e902c58978\transformed\core-viewtree-1.0.0\res
+farmaa.app-fragment-ktx-1.7.1-55 C:\Users\bhara\.gradle\caches\8.14\transforms\f65addd3ace5cb44f1761ca6094f03cd\transformed\fragment-ktx-1.7.1\res
+farmaa.app-debug-56 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\app_links-6.4.1\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-57 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\connectivity_plus-6.1.5\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-58 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\firebase_auth-4.20.0\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-59 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\firebase_core-2.32.0\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-60 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\firebase_messaging-14.9.4\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-61 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\flutter_local_notifications-17.2.4\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-62 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\flutter_plugin_android_lifecycle-2.0.33\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-63 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\flutter_secure_storage-9.2.4\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-64 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\google_sign_in_android-6.2.1\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-65 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\image_picker_android-0.8.13+14\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-66 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\package_info_plus-8.3.1\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-67 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\path_provider_android-2.2.22\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-68 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\razorpay_flutter-1.4.1\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-69 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\shared_preferences_android-2.4.21\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-70 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\sqflite_android-2.4.2+3\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-71 C:\Users\bhara\AppData\Local\Pub\Cache\hosted\pub.dev\url_launcher_android-6.3.28\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-debug-72 D:\flutter\flutter\packages\integration_test\android\build\intermediates\packaged_res\debug\packageDebugResources
+farmaa.app-pngs-73 G:\farmaa project\farmaa_mobile\android\app\build\generated\res\pngs\debug
+farmaa.app-res-74 G:\farmaa project\farmaa_mobile\android\app\build\generated\res\processDebugGoogleServices
+farmaa.app-resValues-75 G:\farmaa project\farmaa_mobile\android\app\build\generated\res\resValues\debug
+farmaa.app-packageDebugResources-76 G:\farmaa project\farmaa_mobile\android\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+farmaa.app-packageDebugResources-77 G:\farmaa project\farmaa_mobile\android\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+farmaa.app-debug-78 G:\farmaa project\farmaa_mobile\android\app\build\intermediates\merged_res\debug\mergeDebugResources
+farmaa.app-debug-79 G:\farmaa project\farmaa_mobile\android\app\src\debug\res
+farmaa.app-main-80 G:\farmaa project\farmaa_mobile\android\app\src\main\res

@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "farmaa.app-mergeDebugResources-76:/values-watch-v21/values-watch-v21.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\bhara\\.gradle\\caches\\8.14\\transforms\\de4a82b7b688b1569f6007afb6efdc80\\transformed\\appcompat-1.1.0\\res\\values-watch-v21\\values-watch-v21.xml",
+                    "from": {
+                        "startLines": "2,6,10",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,271,499",
+                        "endLines": "5,9,13",
+                        "endColumns": "12,12,12",
+                        "endOffsets": "266,494,724"
+                    }
+                }
+            ]
+        }
+    ]
+}
