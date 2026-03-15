@@ -36,12 +36,12 @@ The app connects to the **Vercel cloud backend** by default:
 
 ```dart
 // lib/core/constants/app_constants.dart
-static const String prodUrl = 'https://farmaa-ivory.vercel.app';
+static const String prodUrl = 'https://farmaa1-0.vercel.app';
 ```
 
 Environment config is managed via the `.env` file:
 ```
-BASE_URL=https://farmaa-ivory.vercel.app
+BASE_URL=https://farmaa1-0.vercel.app
 SUPABASE_URL=https://qhllzkyklmvvvqkpzhbj.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 ```
