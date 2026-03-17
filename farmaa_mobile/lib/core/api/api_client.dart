@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../services/discovery_service.dart';
+import '../services/auth_service.dart';
 
 /// Singleton Dio client with JWT auth and error handling interceptors.
 class ApiClient {
@@ -116,15 +117,72 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      // Token expired — clear storage and signal auth failure
-      await _storage.delete(key: AppConstants.jwtKey);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.userKey);
-      // Re-throw so the app can navigate to login
-      handler.next(err);
+      debugPrint('[ApiClient] 401 Unauthorized encountered. Attempting token refresh...');
+      
+      // Prevent infinite loops by checking a custom flag
+      if (err.requestOptions.extra['isRetry'] == true) {
+        debugPrint('[ApiClient] Token refresh failed or token still unauthorized. Clearing session.');
+        await _clearSessionAndThrow(err, handler);
+        return;
+      }
+
+      try {
+        // Attempt to refresh the backend JWT
+        // Uses dynamic import logic to avoid circular dependency
+        final authService = await _getAuthService();
+        final newToken = await authService.refreshBackendToken();
+
+        if (newToken != null) {
+          debugPrint('[ApiClient] Token refreshed successfully. Retrying request.');
+          
+          // Clone the original request with the new token
+          final opts = err.requestOptions;
+          opts.headers['Authorization'] = 'Bearer $newToken';
+          opts.extra['isRetry'] = true; // Mark as retry to prevent loops
+          
+          // Re-execute the request
+          final dio = Dio(ApiClient().dio.options);
+          final response = await dio.request(
+            opts.path,
+            data: opts.data,
+            queryParameters: opts.queryParameters,
+            options: Options(
+              method: opts.method,
+              headers: opts.headers,
+              extra: opts.extra,
+            ),
+          );
+          return handler.resolve(response);
+        } else {
+          debugPrint('[ApiClient] Token refresh returned null.');
+          await _clearSessionAndThrow(err, handler);
+        }
+      } catch (e) {
+        debugPrint('[ApiClient] Error during token refresh retry: $e');
+        await _clearSessionAndThrow(err, handler);
+      }
     } else {
       handler.next(err);
     }
+  }
+
+  Future<void> _clearSessionAndThrow(DioException err, ErrorInterceptorHandler handler) async {
+    await _storage.delete(key: AppConstants.jwtKey);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(AppConstants.userKey);
+    // Add custom error message indicating session expiration
+    err = err.copyWith(
+      message: 'Session expired. Please sign in again.',
+    );
+    handler.next(err);
+  }
+
+  // Dynamic getter to prevent circular imports if AuthService uses ApiClient
+  Future<dynamic> _getAuthService() async {
+    // Import auth_service lazily to avoid circular dependencies at load time
+    // if ApiClient is instantiated before AuthService.
+    // In Dart, since we just use singletons, we can safely return the imported instance.
+    return AuthService.instance;
   }
 }
 

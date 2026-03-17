@@ -96,6 +96,36 @@ class AuthService {
     await FirebaseAuthService.instance.sendPasswordResetEmail(email);
   }
 
+  // ── Token Refresh ─────────────────────────────────────────
+
+  /// Refreshes the backend JWT using a freshly fetched Firebase ID token.
+  Future<String?> refreshBackendToken() async {
+    try {
+      final user = fb.FirebaseAuth.instance.currentUser;
+      if (user == null) return null;
+
+      // 1. Force refresh of the Firebase ID token
+      final idToken = await user.getIdToken(true);
+      if (idToken == null) return null;
+
+      // 2. Exchange for a new backend JWT
+      final response = await _dio.post('/auth/exchange_token', data: {
+        'firebase_id_token': idToken,
+        'email': user.email,
+      });
+
+      final data = response.data as Map<String, dynamic>;
+      final backendToken = data['access_token'] as String;
+
+      // 3. Update secure storage
+      await _storage.write(key: AppConstants.jwtKey, value: backendToken);
+      return backendToken;
+    } catch (e) {
+      debugPrint('Token refresh failed: $e');
+      return null;
+    }
+  }
+
   // ── Session Management ────────────────────────────────────
 
   Future<void> _persistSession({
@@ -183,16 +213,27 @@ class AuthService {
 
   /// Login with Google Sign-In via Firebase Auth.
   Future<({UserModel user, String token})> loginWithGoogle() async {
+    // 1. Perform Google Sign-In
     final result = await GoogleAuthService.instance.signIn();
 
-    // Get Firebase ID token after Google sign-in
+    // 2. Get fresh Firebase ID token
     final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken != null) {
-      await _persistSession(token: idToken, user: result.user);
-      return (user: result.user, token: idToken);
+    if (idToken == null) {
+        throw Exception('Failed to get Firebase token after Google login');
     }
 
-    await _persistSession(token: result.token, user: result.user);
-    return result;
+    // 3. Exchange Firebase token for backend JWT
+    final response = await _dio.post('/auth/exchange_token', data: {
+      'firebase_id_token': idToken,
+      'name': result.user.name,
+      'email': result.user.email,
+    });
+
+    final data = response.data as Map<String, dynamic>;
+    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    final backendToken = data['access_token'] as String;
+
+    await _persistSession(token: backendToken, user: user);
+    return (user: user, token: backendToken);
   }
 }
