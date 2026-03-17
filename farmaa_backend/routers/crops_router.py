@@ -35,7 +35,11 @@ def list_crops(
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    query = db.query(Crop).filter(Crop.is_available == True)
+    query = db.query(Crop).filter(
+        Crop.is_available == True,
+        Crop.is_active == True,
+        Crop.status == "approved"
+    )
     if category:
         # Validate category against known values
         valid_categories = {"Rice", "Wheat", "Millet", "Barley", "Sorghum", "Maize", "Pulses", "Other"}
