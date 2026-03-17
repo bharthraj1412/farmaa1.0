@@ -25,6 +25,19 @@ void main() async {
   // Load persisted backend URL early to avoid connection failures
   await ApiClient().loadPersistedBaseUrl();
 
+  // Initialize core background services before running app
+  try {
+    await Supabase.initialize(
+      url: EnvironmentConfig.supabaseUrl,
+      anonKey: EnvironmentConfig.supabaseAnonKey,
+    );
+    await Firebase.initializeApp();
+    await NotificationService.instance.init();
+    debugPrint('[Farmaa] Background services initialized successfully.');
+  } catch (e) {
+    debugPrint('[Farmaa] Service initialization failure: $e');
+  }
+
   // Enable font fetching to ensure premium typography loads
   GoogleFonts.config.allowRuntimeFetching = true;
 
@@ -51,28 +64,8 @@ void main() async {
 }
 
 /// Lazy service initialization — called after first frame.
-Future<void> initializeAppServices() => _initializeServices();
-
-bool _isInitialized = false;
-
-Future<void> _initializeServices() async {
-  if (_isInitialized) return;
-  _isInitialized = true;
-
-  unawaited(() async {
-    try {
-      await Supabase.initialize(
-        url: EnvironmentConfig.supabaseUrl,
-        anonKey: EnvironmentConfig.supabaseAnonKey,
-      );
-      await Firebase.initializeApp();
-      await NotificationService.instance.init();
-      debugPrint('[Farmaa] Background services initialized successfully.');
-    } catch (e) {
-      debugPrint('[Farmaa] Service initialization failure: $e');
-      _isInitialized = false;
-    }
-  }());
+Future<void> initializeAppServices() async {
+  // Now handled synchronously in main()
 }
 
 class FarmaaApp extends ConsumerWidget {

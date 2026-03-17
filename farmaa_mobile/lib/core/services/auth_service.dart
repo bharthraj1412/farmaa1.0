@@ -43,8 +43,8 @@ class AuthService {
       throw Exception('Failed to get Firebase token after registration');
     }
 
-    // 3. Sync user with backend
-    final response = await _dio.post('/auth/firebase', data: {
+    // 3. Exchange Firebase token for backend JWT
+    final response = await _dio.post('/auth/exchange_token', data: {
       'firebase_id_token': idToken,
       'name': name,
       'email': email,
@@ -52,9 +52,11 @@ class AuthService {
 
     final data = response.data as Map<String, dynamic>;
     final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    // Store the backend-issued JWT, not the Firebase token
+    final backendToken = data['access_token'] as String;
 
-    await _persistSession(token: idToken, user: user);
-    return (user: user, token: idToken);
+    await _persistSession(token: backendToken, user: user);
+    return (user: user, token: backendToken);
   }
 
   Future<({UserModel user, String token})> login({
@@ -73,17 +75,19 @@ class AuthService {
       throw Exception('Failed to get Firebase token after login');
     }
 
-    // 3. Sync with backend to get user profile
-    final response = await _dio.post('/auth/firebase', data: {
+    // 3. Exchange Firebase token for backend JWT
+    final response = await _dio.post('/auth/exchange_token', data: {
       'firebase_id_token': idToken,
       'email': email,
     });
 
     final data = response.data as Map<String, dynamic>;
     final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    // Store the backend-issued JWT, not the Firebase token
+    final backendToken = data['access_token'] as String;
 
-    await _persistSession(token: idToken, user: user);
-    return (user: user, token: idToken);
+    await _persistSession(token: backendToken, user: user);
+    return (user: user, token: backendToken);
   }
 
   // ── Password Reset ────────────────────────────────────────

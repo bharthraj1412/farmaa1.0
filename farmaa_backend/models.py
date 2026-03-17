@@ -49,6 +49,7 @@ class Crop(Base):
     unit = Column(String(10), default="kg")
     status = Column(String(20), default="approved")
     is_available = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True)
     image_url = Column(String(500))
     location = Column(String(200))
     last_price_update = Column(DateTime, default=lambda: datetime.now(timezone.utc))

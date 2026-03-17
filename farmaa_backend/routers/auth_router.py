@@ -218,7 +218,6 @@ def update_profile(body: UserUpdate, user_id: str = Depends(get_current_user_id)
         if new_phone and not validate_phone_number(new_phone):
             raise HTTPException(status_code=400, detail="Invalid phone number format")
         if new_phone != user.phone:
-            # Check for duplicate phone
             existing = db.query(User).filter(User.phone == new_phone, User.id != user_id).first()
             if existing:
                 raise HTTPException(status_code=400, detail="Phone number already in use")
@@ -226,16 +225,83 @@ def update_profile(body: UserUpdate, user_id: str = Depends(get_current_user_id)
     if body.email is not None:
         new_email = body.email.strip().lower()
         if new_email != user.email:
-            # Check for duplicate email
             existing = db.query(User).filter(User.email == new_email, User.id != user_id).first()
             if existing:
                 raise HTTPException(status_code=400, detail="Email already in use")
             user.email = new_email
-    user.updated_at = datetime.now(timezone.utc)
+    # ── Persist location and org fields (BUG FIX: these were silently dropped) ──
+    if body.village is not None:
+        user.village = sanitize_string(body.village, max_length=100) if body.village else None
+    if body.district is not None:
+        user.district = sanitize_string(body.district, max_length=100) if body.district else None
+    if body.org is not None:
+        user.organization = sanitize_string(body.org, max_length=150) if body.org else None
 
+    user.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
     return UserOut.model_validate(user)
+
+
+@router.post("/exchange_token", response_model=AuthResponse)
+def exchange_token(body: FirebaseAuthRequest, db: Session = Depends(get_db)):
+    """Token exchange: verify Firebase ID token once, upsert user, return backend JWT.
+    
+    The mobile app should call this once after Firebase login/register, then use
+    the returned backend JWT for all subsequent API calls (fast HS256 verification).
+    """
+    firebase_user = verify_firebase_id_token(body.firebase_id_token)
+    if firebase_user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired Firebase token")
+
+    verified_email = firebase_user.get("email", "").lower()
+    if verified_email and verified_email != body.email.lower():
+        raise HTTPException(status_code=400, detail="Email mismatch between Firebase token and request")
+    email = verified_email or body.email.lower()
+    firebase_uid = firebase_user.get("uid")
+
+    # Upsert: find by firebase_uid, then email, or create
+    user = None
+    if firebase_uid:
+        user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+    if user is None:
+        user = db.query(User).filter(User.email == email).first()
+
+    if user is None:
+        user = User(
+            email=email,
+            firebase_uid=firebase_uid,
+            name=sanitize_string(body.name, max_length=100) or "User",
+            role="buyer",
+            profile_image=body.profile_image or firebase_user.get("picture"),
+            is_verified=firebase_user.get("email_verified", False),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        logger.info(f"[Farmaa] New user created via exchange_token: {email}")
+    else:
+        if firebase_uid and not user.firebase_uid:
+            user.firebase_uid = firebase_uid
+        if body.name and body.name != "User" and (not user.name or user.name == "User"):
+            user.name = sanitize_string(body.name, max_length=100)
+        if body.profile_image and not user.profile_image:
+            user.profile_image = body.profile_image
+        if not user.is_verified and firebase_user.get("email_verified", False):
+            user.is_verified = True
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+
+    token_data = {"sub": user.id, "email": user.email, "role": user.role}
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserOut.model_validate(user),
+    )
 
 
 @router.post("/logout")

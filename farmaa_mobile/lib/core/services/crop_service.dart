@@ -28,7 +28,16 @@ class CropService {
       'skip': (page - 1) * limit,
       'limit': limit,
     });
-    final items = (response.data as List<dynamic>?) ?? [];
+    // BUG FIX: Backend returns {"total": N, "items": [...]}, not a raw list.
+    final data = response.data;
+    final List<dynamic> items;
+    if (data is Map<String, dynamic>) {
+      items = (data['items'] as List<dynamic>?) ?? [];
+    } else if (data is List) {
+      items = data;
+    } else {
+      items = [];
+    }
     return items
         .map((e) => CropModel.fromJson(e as Map<String, dynamic>))
         .toList();

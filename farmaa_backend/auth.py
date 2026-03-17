@@ -102,43 +102,53 @@ def get_current_user_id(
 ) -> str:
     """FastAPI dependency – extracts user_id from Bearer token.
     
-    Accepts both Firebase ID tokens and legacy custom JWTs.
-    For Firebase tokens, resolves the email to the actual DB user ID.
+    Strategy (ordered by speed):
+    1. Try backend-issued JWT (HS256, ~0ms) – returns user_id from 'sub' claim.
+    2. Fallback: verify Firebase ID token, then resolve email→user_id via DB.
+       This path is only hit when the client hasn't exchanged tokens yet.
     """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     token = credentials.credentials
     
-    # Try Firebase ID token verification first
-    firebase_user = verify_firebase_id_token(token)
-    if firebase_user is not None:
-        # Resolve Firebase email to actual DB user ID
-        email = firebase_user.get("email", "").lower()
-        if not email:
-            raise HTTPException(status_code=401, detail="Firebase token missing email")
-        
-        # Lazy import to avoid circular dependencies
-        from database import get_db
-        from models import User
-        db = next(get_db())
-        try:
-            user = db.query(User).filter(User.email == email).first()
-            if user is None:
-                raise HTTPException(
-                    status_code=401,
-                    detail="User not found. Please register first.",
-                )
-            return user.id
-        finally:
-            db.close()
+    # ── 1. Try fast backend JWT verification first ──
+    try:
+        payload = verify_token(token)
+        user_id = payload.get("sub")
+        if user_id:
+            return user_id
+    except HTTPException:
+        pass  # Not a backend JWT — try Firebase below
     
-    # Fallback to custom JWT verification
-    payload = verify_token(token)
-    user_id = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-    return user_id
+    # ── 2. Fallback: Firebase ID token → resolve to DB user ──
+    firebase_user = verify_firebase_id_token(token)
+    if firebase_user is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    email = firebase_user.get("email", "").lower()
+    firebase_uid = firebase_user.get("uid")
+    if not email and not firebase_uid:
+        raise HTTPException(status_code=401, detail="Firebase token missing identity")
+    
+    # Return a marker dict so the route can resolve the user via its own DB session.
+    # For backward compat, we need to resolve here. Use the DI-safe approach:
+    from database import SessionLocal
+    from models import User
+    if SessionLocal is None:
+        raise HTTPException(status_code=503, detail="Database not available")
+    db = SessionLocal()
+    try:
+        user = None
+        if firebase_uid:
+            user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
+        if user is None and email:
+            user = db.query(User).filter(User.email == email).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="User not found. Please register first.")
+        return user.id
+    finally:
+        db.close()
 
 
 # ── Firebase ID Token Verification ──────────────────────────────────────────
@@ -154,27 +164,33 @@ def _init_firebase():
         import firebase_admin
         from firebase_admin import credentials as fb_credentials
         
-        # Try to load service account from env var or file
-        cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
-        cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
-        
-        if cred_json:
-            import json
-            cred_dict = json.loads(cred_json)
-            cred = fb_credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
-        elif cred_path and os.path.exists(cred_path):
-            cred = fb_credentials.Certificate(cred_path)
-            firebase_admin.initialize_app(cred)
-        else:
-            # Initialize without credentials (uses Application Default Credentials)
-            firebase_admin.initialize_app()
+        # Check if already initialized to avoid ValueError
+        if not firebase_admin._apps:
+            # Try to load service account from env var or file
+            cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
+            cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+            
+            if cred_json:
+                import json
+                cred_dict = json.loads(cred_json)
+                cred = fb_credentials.Certificate(cred_dict)
+                firebase_admin.initialize_app(cred)
+            elif cred_path and os.path.exists(cred_path):
+                cred = fb_credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+            else:
+                # Initialize without credentials but with a known project ID
+                # This is sufficient for verifying ID tokens, which is our main use case
+                project_id = os.getenv("FIREBASE_PROJECT_ID", "farmaa-bdbe3")
+                logger.warning(f"[Farmaa] Initializing Firebase without explicit credentials (ADC). Project ID: {project_id}")
+                firebase_admin.initialize_app(options={'projectId': project_id})
         
         _firebase_initialized = True
         logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
     except Exception as e:
-        logger.warning(f"[Farmaa] Firebase Admin SDK init failed: {e}")
-        _firebase_initialized = False
+        logger.error(f"[Farmaa] Firebase Admin SDK init failed: {e}")
+        # Set to True anyway to prevent spamming the error on every request
+        _firebase_initialized = True
 
 
 def verify_firebase_id_token(id_token: str) -> dict:

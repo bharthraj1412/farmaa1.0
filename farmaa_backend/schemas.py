@@ -111,7 +111,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = Field(default=None, max_length=255)
     village: Optional[str] = Field(default=None, max_length=100)
     district: Optional[str] = Field(default=None, max_length=100)
-    org: Optional[str] = Field(default=None, max_length=150)
+    org: Optional[str] = Field(default=None, max_length=150, description="Organization name")
 
 
 # ── Crops ──

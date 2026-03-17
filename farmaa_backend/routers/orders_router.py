@@ -55,7 +55,13 @@ def _map_order(order: Order) -> OrderOut:
 @router.post("", response_model=OrderOut, status_code=201)
 @router.post("/", response_model=OrderOut, status_code=201, include_in_schema=False)
 def create_order(body: OrderCreate, user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
-    crop = db.query(Crop).filter(Crop.id == body.crop_id).first()
+    # ── Acquire row-level lock to prevent race conditions ──
+    # SELECT ... FOR UPDATE ensures no two concurrent transactions can
+    # read the same stock value before decrementing.
+    crop = db.query(Crop).filter(
+        Crop.id == body.crop_id
+    ).with_for_update().first()
+
     if crop is None:
         raise HTTPException(status_code=404, detail="Crop not found")
     if not crop.is_available:
@@ -65,11 +71,14 @@ def create_order(body: OrderCreate, user_id: str = Depends(get_current_user_id),
     if crop.farmer_id == user_id:
         raise HTTPException(status_code=400, detail="You cannot order your own crops")
 
-    # Validate quantity
+    # Validate quantity (re-check under lock)
     if body.quantity_kg <= 0:
         raise HTTPException(status_code=400, detail="Quantity must be positive")
     if body.quantity_kg > crop.stock_kg:
-        raise HTTPException(status_code=400, detail=f"Insufficient stock. Available: {crop.stock_kg} kg")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient stock. Available: {crop.stock_kg} kg"
+        )
     if crop.min_order_kg and body.quantity_kg < crop.min_order_kg:
         raise HTTPException(
             status_code=400,
@@ -94,6 +103,7 @@ def create_order(body: OrderCreate, user_id: str = Depends(get_current_user_id),
     )
     db.add(order)
 
+    # ── Atomic decrement (under FOR UPDATE lock) ──
     crop.stock_kg -= body.quantity_kg
     if crop.stock_kg <= 0:
         crop.is_available = False

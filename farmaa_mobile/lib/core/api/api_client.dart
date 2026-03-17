@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,16 +102,10 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
-    String? token;
-
-    // Try Firebase ID token first (primary auth method)
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser != null) {
-      token = await firebaseUser.getIdToken();
-    }
-
-    // Fallback: read token from secure storage
-    token ??= await _storage.read(key: AppConstants.jwtKey);
+    // Read the backend JWT from secure storage.
+    // We no longer send the Firebase ID token directly; Firebase is only
+    // used at login/register to exchange for this backend JWT.
+    final token = await _storage.read(key: AppConstants.jwtKey);
 
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
