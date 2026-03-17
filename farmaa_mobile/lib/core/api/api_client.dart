@@ -1,326 +1,327 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/app_constants.dart';
-import '../services/discovery_service.dart';
-import '../services/auth_service.dart';
 
-/// Singleton Dio client with JWT auth and error handling interceptors.
+import '../config/env_config.dart'; // Contains EnvConfig.baseUrl
+
+/// Clean custom exceptions for the UI to consume
+class UnauthorizedException implements Exception {
+  final String message;
+  UnauthorizedException([this.message = 'Session expired. Please sign in again.']);
+  @override
+  String toString() => message;
+}
+
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
+  ApiException(this.message, {this.statusCode});
+  @override
+  String toString() => 'ApiException: $message (Status: $statusCode)';
+}
+
+/// A robust Dio-based API client handling backend JWT tokens, secure storage,
+/// and automatic 1-time retry workflows for 401 Unauthorized responses.
 class ApiClient {
-  ApiClient._();
-  static final ApiClient _instance = ApiClient._();
-  factory ApiClient() => _instance;
+  ApiClient._internal() {
+    // Note: Can inject a dynamic baseUrl if needed, 
+    // replacing EnvConfig.baseUrl as per project config
+    _dio = Dio(BaseOptions(
+      baseUrl: EnvConfig.baseUrl, 
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    ));
 
-  static const _storage = FlutterSecureStorage();
-  late final Dio dio = _createDio();
-
-  /// Global flag to avoid repeated 3s timeouts across different services
-  bool _isBackendDown = false;
-  DateTime? _lastFailureTime;
-
-  Future<void> discover() async {
-    if (AppConstants.isProduction) return; // Skip discovery in production
-    final found = await DiscoveryService.instance.discoverBackend();
-    if (found != null && found != AppConstants.baseUrl) {
-      AppConstants.baseUrl = found;
-      dio.options.baseUrl = found;
-      await _storage.write(key: AppConstants.baseUrlKey, value: found);
-      resetCircuitBreaker();
-      debugPrint('[ApiClient] Auto-discovered backend at: $found');
-    }
-  }
-
-  Future<void> loadPersistedBaseUrl() async {
-    // In production, always use the hardcoded proUrl unless manually overridden
-    if (AppConstants.isProduction) {
-      AppConstants.baseUrl = AppConstants.prodUrl;
-      try {
-        dio.options.baseUrl = AppConstants.prodUrl;
-      } catch (_) {}
-      return;
-    }
-
-    final saved = await _storage.read(key: AppConstants.baseUrlKey);
-    if (saved != null && saved.startsWith('http')) {
-      AppConstants.baseUrl = saved;
-      // If dio is already initialized, update its baseUrl
-      try {
-        dio.options.baseUrl = saved;
-      } catch (_) {
-        // dio might not be initialized yet, which is fine
-      }
-      debugPrint('[ApiClient] Loaded persisted base URL: $saved');
-    }
-  }
-
-  void resetCircuitBreaker() {
-    _isBackendDown = false;
-    _lastFailureTime = null;
-    debugPrint('[ApiClient] Circuit breaker reset manually.');
-  }
-
-  Dio _createDio() {
-    final d = Dio(
-      BaseOptions(
-        baseUrl: AppConstants.baseUrl,
-        connectTimeout: AppConstants.connectTimeout,
-        receiveTimeout: AppConstants.receiveTimeout,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-App-Version': '1.0.0',
-        },
-      ),
-    );
-
-    d.interceptors.addAll([
-      _CircuitBreakerInterceptor(this),
-      _AuthInterceptor(_storage),
+    // Register Interceptors
+    _dio.interceptors.addAll([
+      _AuthInterceptor(this),
       _ErrorInterceptor(),
-      if (!AppConstants.isProduction)
-        LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          error: true,
-          requestHeader: false,
-          responseHeader: false,
-        ),
     ]);
+  }
 
-    return d;
+  static final ApiClient instance = ApiClient._internal();
+
+  late final Dio _dio;
+  
+  // Storage layer
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  
+  // Storage Keys
+  static const String _tokenKey = 'app_jwt';
+  static const String _expiryKey = 'app_jwt_expiry';
+
+  // Concurrency lock for token refreshes
+  Future<String?>? _ongoingTokenRefresh;
+
+  // ── Public HTTP Methods ───────────────────────────────────────────────────
+
+  Future<Response<T>> get<T>(String path, {Map<String, dynamic>? queryParameters}) {
+    return _dio.get<T>(path, queryParameters: queryParameters);
+  }
+
+  Future<Response<T>> post<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters}) {
+    return _dio.post<T>(path, data: data, queryParameters: queryParameters);
+  }
+
+  Future<Response<T>> put<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters}) {
+    return _dio.put<T>(path, data: data, queryParameters: queryParameters);
+  }
+
+  Future<Response<T>> patch<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters}) {
+    return _dio.patch<T>(path, data: data, queryParameters: queryParameters);
+  }
+
+  Future<Response<T>> delete<T>(String path, {dynamic data, Map<String, dynamic>? queryParameters}) {
+    return _dio.delete<T>(path, data: data, queryParameters: queryParameters);
+  }
+
+  Future<Response<T>> request<T>(String path, {
+    dynamic data, 
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+  }) {
+    return _dio.request<T>(path, data: data, queryParameters: queryParameters, options: options);
+  }
+
+  // ── Authentication & Token Exchange ───────────────────────────────────────
+
+  /// Calls the backend to exchange a Firebase ID token for our native HS256 JWT
+  Future<String?> exchangeFirebaseIdToken(String idToken) async {
+    try {
+      if (kDebugMode) print('[ApiClient] Skipping interceptors to exchange ID token...');
+      
+      // Perform token exchange WITHOUT our custom interceptors to avoid loops
+      final freshDio = Dio(BaseOptions(baseUrl: EnvConfig.baseUrl));
+      final user = FirebaseAuth.instance.currentUser;
+
+      final response = await freshDio.post(
+        '/auth/exchange_token',
+        data: {
+          'firebase_id_token': idToken,
+          'email': user?.email, // Backend fallback identifier
+        },
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data as Map<String, dynamic>;
+        final accessJwt = data['access_token'] as String;
+        // Default backend emits no explicit expires_in rn, assuming 1h default via prompt
+        final expiresInSeconds = data['expires_in'] as int? ?? 3600; 
+
+        await _saveBackendToken(accessJwt, expiresInSeconds);
+        return accessJwt;
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) print('[ApiClient] Token exchange failed: $e');
+      return null;
+    }
+  }
+
+  /// Ensure we have a valid Backend token. If expired, forces a refresh against Firebase -> Backend
+  Future<String?> ensureValidBackendToken() async {
+    // 1. Thread safety: Block concurrent network refreshes
+    if (_ongoingTokenRefresh != null) {
+      return await _ongoingTokenRefresh;
+    }
+
+    _ongoingTokenRefresh = _forceTokenRefreshOrReturnValid();
+    final token = await _ongoingTokenRefresh;
+    _ongoingTokenRefresh = null;
+    return token;
+  }
+
+  Future<String?> _forceTokenRefreshOrReturnValid() async {
+    final storedToken = await _storage.read(key: _tokenKey);
+    final expiryStr = await _storage.read(key: _expiryKey);
+
+    // 2. Check Expiry
+    if (storedToken != null && expiryStr != null) {
+      final expirySeconds = int.tryParse(expiryStr) ?? 0;
+      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      
+      // Buffer of 30 seconds to prevent edge-case race conditions
+      if (nowSeconds < (expirySeconds - 30)) {
+        return storedToken; // Fast path: Still valid!
+      }
+    }
+
+    // 3. Fallback: Token is invalid or missing. Attempt to fetch a new Firebase token
+    if (kDebugMode) print('[ApiClient] Missing or expired JWT. Fetching fresh Firebase Identity...');
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    if (firebaseUser == null) {
+       return null; 
+    }
+
+    try {
+      final freshIdToken = await firebaseUser.getIdToken(true);
+      if (freshIdToken == null) return null;
+
+      // 4. Exchange new token at the backend
+      return await exchangeFirebaseIdToken(freshIdToken);
+    } catch (e) {
+       if (kDebugMode) print('[ApiClient] Failed to refresh Firebase token natively: $e');
+       return null;
+    }
+  }
+
+  Future<void> _saveBackendToken(String token, int expiresInSeconds) async {
+    final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiryEpoch = nowEpoch + expiresInSeconds;
+
+    await Future.wait([
+      _storage.write(key: _tokenKey, value: token),
+      _storage.write(key: _expiryKey, value: expiryEpoch.toString()),
+    ]);
+  }
+
+  /// Completely clears the session
+  Future<void> clearSession() async {
+    if (kDebugMode) print('[ApiClient] Purging secure session...');
+    await _storage.delete(key: _tokenKey);
+    await _storage.delete(key: _expiryKey);
+  }
+
+  // ── Testing Hooks ─────────────────────────────────────────────────────────
+
+  @visibleForTesting
+  Future<void> forceSetJwt(String token, int expiresInSeconds) async {
+    await _saveBackendToken(token, expiresInSeconds);
   }
 }
 
-// ── Auth Interceptor ─────────────────────────────────────────────────────────
+// ── Interceptors ────────────────────────────────────────────────────────────
 
 class _AuthInterceptor extends Interceptor {
-  final FlutterSecureStorage _storage;
-
-  _AuthInterceptor(this._storage);
+  final ApiClient _client;
+  _AuthInterceptor(this._client);
 
   @override
-  void onRequest(
-      RequestOptions options, RequestInterceptorHandler handler) async {
-    // Read the backend JWT from secure storage.
-    // We no longer send the Firebase ID token directly; Firebase is only
-    // used at login/register to exchange for this backend JWT.
-    final token = await _storage.read(key: AppConstants.jwtKey);
-
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+    // 1. Skip paths that inherently don't require auth
+    final whiteList = ['/auth/login', '/auth/register', '/auth/firebase', '/auth/exchange_token'];
+    if (whiteList.any((path) => options.path.contains(path))) {
+      return handler.next(options);
     }
-    handler.next(options);
+
+    // 2. Obtain valid token synchronously
+    final backendToken = await _client.ensureValidBackendToken();
+
+    // 3. Log interceptor state
+    if (kDebugMode) {
+      final hasToken = backendToken != null;
+      print('[ApiClient] => ${options.method} ${options.path} | Has Auth: $hasToken');
+    }
+
+    // 4. Block request if completely unauthenticated
+    if (backendToken == null) {
+      return handler.reject(
+        DioException(
+          requestOptions: options,
+          error: UnauthorizedException(),
+        )
+      );
+    }
+
+    // 5. Inject Authorization and Pass
+    options.headers['Authorization'] = 'Bearer $backendToken';
+    return handler.next(options);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      debugPrint('[ApiClient] 401 Unauthorized encountered. Attempting token refresh...');
-      
-      // Prevent infinite loops by checking a custom flag
-      if (err.requestOptions.extra['isRetry'] == true) {
-        debugPrint('[ApiClient] Token refresh failed or token still unauthorized. Clearing session.');
-        await _clearSessionAndThrow(err, handler);
-        return;
+      if (kDebugMode) print('[ApiClient] 401 Unauthorized hit tracking interceptor target');
+
+      // Check if we already retried this exact payload
+      if (err.requestOptions.extra['retried'] == true) {
+        if (kDebugMode) print('[ApiClient] Rejecting payload. Retry array limit reached.');
+        await _client.clearSession(); // Drop token state
+        // Return clear app-facing exception
+        return handler.next(err.copyWith(error: UnauthorizedException()));
       }
 
-      try {
-        // Attempt to refresh the backend JWT
-        // Uses dynamic import logic to avoid circular dependency
-        final authService = await _getAuthService();
-        final newToken = await authService.refreshBackendToken();
+      // Mark request as entering retry phase
+      err.requestOptions.extra['retried'] = true;
+      
+      // Wipe the known bad token so ensureValidBackendToken() forces a full Firebase refresh bypass
+      await _client.clearSession(); 
 
+      try {
+        final newToken = await _client.ensureValidBackendToken();
         if (newToken != null) {
-          debugPrint('[ApiClient] Token refreshed successfully. Retrying request.');
+          if (kDebugMode) print('[ApiClient] Recovery successful. Retrying original request.');
           
-          // Clone the original request with the new token
           final opts = err.requestOptions;
           opts.headers['Authorization'] = 'Bearer $newToken';
-          opts.extra['isRetry'] = true; // Mark as retry to prevent loops
           
-          // Re-execute the request
-          final dio = Dio(ApiClient().dio.options);
-          final response = await dio.request(
+          // Retry using the core Dio instance
+          final response = await _client._dio.request(
             opts.path,
             data: opts.data,
             queryParameters: opts.queryParameters,
             options: Options(
               method: opts.method,
               headers: opts.headers,
+              contentType: opts.contentType,
+              responseType: opts.responseType,
               extra: opts.extra,
             ),
           );
+          
           return handler.resolve(response);
         } else {
-          debugPrint('[ApiClient] Token refresh returned null.');
-          await _clearSessionAndThrow(err, handler);
+          // Refresh failed
+          await _client.clearSession();
+          return handler.next(err.copyWith(error: UnauthorizedException()));
         }
       } catch (e) {
-        debugPrint('[ApiClient] Error during token refresh retry: $e');
-        await _clearSessionAndThrow(err, handler);
+        // Recovery loop entirely collapsed
+        await _client.clearSession();
+        return handler.next(err.copyWith(error: UnauthorizedException()));
       }
-    } else {
-      handler.next(err);
     }
-  }
 
-  Future<void> _clearSessionAndThrow(DioException err, ErrorInterceptorHandler handler) async {
-    await _storage.delete(key: AppConstants.jwtKey);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(AppConstants.userKey);
-    // Add custom error message indicating session expiration
-    err = err.copyWith(
-      message: 'Session expired. Please sign in again.',
-    );
+    // Pass along standard non-401 exceptions
     handler.next(err);
   }
-
-  // Dynamic getter to prevent circular imports if AuthService uses ApiClient
-  Future<dynamic> _getAuthService() async {
-    // Import auth_service lazily to avoid circular dependencies at load time
-    // if ApiClient is instantiated before AuthService.
-    // In Dart, since we just use singletons, we can safely return the imported instance.
-    return AuthService.instance;
-  }
 }
-
-// ── Error Interceptor ────────────────────────────────────────────────────────
 
 class _ErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    String message;
-
-    switch (err.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        message = 'Connection timed out. Please check your internet.';
-        break;
-      case DioExceptionType.connectionError:
-        message =
-            'Cannot connect to server. Please check your internet connection.';
-        break;
-      case DioExceptionType.badResponse:
-        final status = err.response?.statusCode;
-        final body = err.response?.data;
-        if (body is Map && body.containsKey('detail')) {
-          message = body['detail'].toString();
-        } else {
-          message = _statusMessage(status);
-        }
-        break;
-      default:
-        message = 'An unexpected error occurred.';
+    if (err.type == DioExceptionType.connectionTimeout || 
+        err.type == DioExceptionType.receiveTimeout) {
+      handler.next(err.copyWith(error: ApiException('Network timeout. Please check your connection.')));
+      return;
     }
-
-    String help = "";
-    if (!AppConstants.isProduction &&
-        !kIsWeb &&
-        err.type == DioExceptionType.connectionError) {
-      help =
-          "\n\nTip: On a real phone, ensure your PC server is running and bound to 0.0.0.0, not localhost.";
+    
+    // Pass everything generic to the view-model cleanly
+    if (err.response?.statusCode != 401 && err.error is! UnauthorizedException) {
+      final msg = _extractErrorMessage(err.response);
+      handler.next(err.copyWith(error: ApiException(msg, statusCode: err.response?.statusCode)));
+      return;
     }
-
-    handler.reject(
-      DioException(
-        requestOptions: err.requestOptions,
-        response: err.response,
-        message: "$message$help",
-        type: err.type,
-        error: err.error,
-      ),
-    );
-  }
-
-  String _statusMessage(int? status) {
-    switch (status) {
-      case 400:
-        return 'Invalid request. Please check your input.';
-      case 401:
-        return 'Session expired. Please login again.';
-      case 403:
-        return 'You do not have permission to perform this action.';
-      case 404:
-        return 'Resource not found.';
-      case 422:
-        return 'Validation error. Please check your input.';
-      case 500:
-        return 'Server error. Please try again later.';
-      default:
-        return 'Something went wrong (code: $status).';
-    }
-  }
-}
-
-// ── Circuit Breaker Interceptor ──────────────────────────────────────────────
-
-class _CircuitBreakerInterceptor extends Interceptor {
-  final ApiClient _client;
-  _CircuitBreakerInterceptor(this._client);
-
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    if (_client._isBackendDown && _client._lastFailureTime != null) {
-      final diff = DateTime.now().difference(_client._lastFailureTime!);
-      if (diff.inSeconds < (AppConstants.isProduction ? 5 : 30)) {
-        return handler.reject(
-          DioException(
-            requestOptions: options,
-            message: 'Waiting for server to recover...',
-            type: DioExceptionType.connectionError,
-          ),
-        );
-      } else {
-        _client._isBackendDown = false;
-      }
-    }
-    handler.next(options);
-  }
-
-  @override
-  void onError(DioException err, ErrorInterceptorHandler handler) async {
-    if (err.type == DioExceptionType.connectionTimeout ||
-        err.type == DioExceptionType.connectionError) {
-      _client._isBackendDown = true;
-      _client._lastFailureTime = DateTime.now();
-
-      // ── AUTO-RETRY LOGIC (Development Only) ─────────────────
-      if (!AppConstants.isProduction) {
-        debugPrint(
-            '[ApiClient] Connection failed. Attempting auto-discovery retry...');
-        final found = await DiscoveryService.instance.discoverBackend();
-
-        if (found != null && found != AppConstants.baseUrl) {
-          AppConstants.baseUrl = found;
-          _client.dio.options.baseUrl = found;
-          await ApiClient._storage
-              .write(key: AppConstants.baseUrlKey, value: found);
-          _client.resetCircuitBreaker();
-
-          // Clone the request with the new base URL
-          final opts = err.requestOptions;
-          try {
-            final response = await _client.dio.request(
-              opts.path,
-              data: opts.data,
-              queryParameters: opts.queryParameters,
-              options: Options(
-                method: opts.method,
-                headers: opts.headers,
-              ),
-            );
-            return handler.resolve(response);
-          } catch (retryErr) {
-            if (retryErr is DioException) {
-              return handler.next(retryErr);
-            }
-          }
-        }
-      }
-    }
+    
     handler.next(err);
+  }
+
+  String _extractErrorMessage(dynamic response) {
+    if (response?.data is Map) {
+      final data = response.data;
+      if (data.containsKey('detail')) {
+        final detail = data['detail'];
+        if (detail is String) return detail;
+        if (detail is List && detail.isNotEmpty) return detail[0]['msg'] ?? 'Validation error';
+      }
+      if (data.containsKey('message')) return data['message'];
+    }
+    return 'An unexpected error occurred';
   }
 }
