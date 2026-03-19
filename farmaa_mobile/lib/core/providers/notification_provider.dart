@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import '../../features/shared/screens/notifications_screen.dart'; // To get NotificationItem and NotificationType
 import '../services/notification_service.dart';
 
