@@ -3,7 +3,7 @@ from models import User, Crop
 
 def test_crops_list_returns_all_roles(client, setup_db):
     db = setup_db
-    farmer_user = User(id="f1", phone="8888888888", name="Farmer 1", role="farmer")
+    farmer_user = User(id="f1", mobile_number="+918888888888", name="Farmer 1", role="farmer")
     db.add(farmer_user)
     db.commit()
     

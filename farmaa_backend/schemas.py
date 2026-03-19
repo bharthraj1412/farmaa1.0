@@ -7,56 +7,12 @@ from datetime import datetime
 
 
 # ── Auth ──
-class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    phone: Optional[str] = Field(None, min_length=7, max_length=15, description="Phone number (7-15 digits)")
-    email: Optional[str] = Field(None, description="Email address")
-    password: str = Field(..., min_length=6, max_length=128)
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return v
-        v = v.strip()
-        if not re.match(r'^\+?[0-9]{7,15}$', v):
-            raise ValueError("Invalid phone number format")
-        return v
-
-    @field_validator("email")
-    @classmethod
-    def validate_email(cls, v: Optional[str]) -> Optional[str]:
-        if not v:
-            return v
-        v = v.strip().lower()
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
-            raise ValueError("Invalid email format")
-        return v
-
-    # Make sure either phone or email is provided
-    @field_validator("email", mode="after")
-    @classmethod
-    def validate_contact(cls, v, info):
-        phone = info.data.get("phone")
-        if not v and not phone:
-            raise ValueError("Either email or phone must be provided")
-        return v
-
-
-class LoginRequest(BaseModel):
-    email_or_phone: str = Field(..., min_length=3)
-    password: str = Field(..., min_length=1)
-
-
 class GoogleAuthRequest(BaseModel):
-    google_id_token: str = Field(..., min_length=10, description="Google ID token for server-side verification")
+    """Request body for Google Sign-In authentication."""
+    google_id_token: str = Field(..., min_length=10, description="Google/Firebase ID token for server-side verification")
     email: str = Field(..., description="Google email address")
     name: str = Field(default="User", max_length=100)
     profile_image: Optional[str] = None
-    role: str = Field(default="buyer", pattern=r'^(farmer|buyer)$')
-    village: Optional[str] = Field(default=None, max_length=100)
-    district: Optional[str] = Field(default=None, max_length=100)
-    org: Optional[str] = Field(default=None, max_length=150)
 
     @field_validator("email")
     @classmethod
@@ -67,19 +23,35 @@ class GoogleAuthRequest(BaseModel):
         return v
 
 
-class FirebaseAuthRequest(BaseModel):
-    """Request body for Firebase Auth login/register sync."""
-    firebase_id_token: str = Field(..., min_length=10, description="Firebase ID token")
-    email: str = Field(..., description="User email address")
-    name: str = Field(default="User", max_length=100)
-    profile_image: Optional[str] = None
+class ProfileCompleteRequest(BaseModel):
+    """Request body for mandatory profile completion after first Google login."""
+    name: str = Field(..., min_length=1, max_length=100, description="Full name")
+    mobile_number: str = Field(..., min_length=10, max_length=15, description="India mobile number")
+    district: str = Field(..., min_length=1, max_length=100, description="District name")
+    postal_code: str = Field(..., min_length=6, max_length=6, description="6-digit Indian PIN code")
+    address: str = Field(..., min_length=5, max_length=500, description="Full address")
+    company_name: Optional[str] = Field(default=None, max_length=150, description="Company/organization name (optional)")
 
-    @field_validator("email")
+    @field_validator("mobile_number")
     @classmethod
-    def validate_email(cls, v: str) -> str:
-        v = v.strip().lower()
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
-            raise ValueError("Invalid email format")
+    def validate_mobile(cls, v: str) -> str:
+        v = v.strip()
+        # Allow +91XXXXXXXXXX or 91XXXXXXXXXX or XXXXXXXXXX (10 digits)
+        cleaned = re.sub(r'[\s\-]', '', v)
+        if cleaned.startswith('+91'):
+            cleaned = cleaned[3:]
+        elif cleaned.startswith('91') and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.match(r'^[6-9]\d{9}$', cleaned):
+            raise ValueError("Invalid Indian mobile number. Must be 10 digits starting with 6-9.")
+        return f"+91{cleaned}"
+
+    @field_validator("postal_code")
+    @classmethod
+    def validate_pincode(cls, v: str) -> str:
+        v = v.strip()
+        if not re.match(r'^[1-9]\d{5}$', v):
+            raise ValueError("Invalid PIN code. Must be a valid 6-digit Indian postal code.")
         return v
 
 
@@ -87,19 +59,22 @@ class AuthResponse(BaseModel):
     access_token: str
     refresh_token: Optional[str] = None
     user: "UserOut"
+    profile_completed: bool = False
 
 
 class UserOut(BaseModel):
     id: str
-    phone: Optional[str] = None
     email: Optional[str] = None
     name: str
     role: str
-    village: Optional[str] = None
+    mobile_number: Optional[str] = None
     district: Optional[str] = None
-    organization: Optional[str] = None
+    postal_code: Optional[str] = None
+    address: Optional[str] = None
+    company_name: Optional[str] = None
     profile_image: Optional[str] = None
     is_verified: bool = False
+    profile_completed: bool = False
     created_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -107,11 +82,36 @@ class UserOut(BaseModel):
 
 class UserUpdate(BaseModel):
     name: Optional[str] = Field(default=None, max_length=100)
-    phone: Optional[str] = Field(default=None, max_length=15)
-    email: Optional[str] = Field(default=None, max_length=255)
-    village: Optional[str] = Field(default=None, max_length=100)
+    mobile_number: Optional[str] = Field(default=None, max_length=15)
     district: Optional[str] = Field(default=None, max_length=100)
-    org: Optional[str] = Field(default=None, max_length=150, description="Organization name")
+    postal_code: Optional[str] = Field(default=None, max_length=10)
+    address: Optional[str] = Field(default=None, max_length=500)
+    company_name: Optional[str] = Field(default=None, max_length=150)
+
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return v
+        v = v.strip()
+        cleaned = re.sub(r'[\s\-]', '', v)
+        if cleaned.startswith('+91'):
+            cleaned = cleaned[3:]
+        elif cleaned.startswith('91') and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.match(r'^[6-9]\d{9}$', cleaned):
+            raise ValueError("Invalid Indian mobile number")
+        return f"+91{cleaned}"
+
+    @field_validator("postal_code")
+    @classmethod
+    def validate_pincode(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return v
+        v = v.strip()
+        if not re.match(r'^[1-9]\d{5}$', v):
+            raise ValueError("Invalid PIN code")
+        return v
 
 
 # ── Crops ──

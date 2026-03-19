@@ -117,3 +117,20 @@ def validate_phone_number(phone: str) -> bool:
     # Allow + prefix, then 7-15 digits
     pattern = r'^\+?[0-9]{7,15}$'
     return bool(re.match(pattern, phone.strip()))
+
+
+def validate_india_mobile(number: str) -> bool:
+    """Validate Indian mobile number format (+91XXXXXXXXXX)."""
+    import re
+    cleaned = re.sub(r'[\s\-]', '', number.strip())
+    if cleaned.startswith('+91'):
+        cleaned = cleaned[3:]
+    elif cleaned.startswith('91') and len(cleaned) == 12:
+        cleaned = cleaned[2:]
+    return bool(re.match(r'^[6-9]\d{9}$', cleaned))
+
+
+def validate_india_pincode(pin: str) -> bool:
+    """Validate 6-digit Indian postal code."""
+    import re
+    return bool(re.match(r'^[1-9]\d{5}$', pin.strip()))

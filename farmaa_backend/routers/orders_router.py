@@ -39,12 +39,12 @@ def _map_order(order: Order) -> OrderOut:
     # Map Buyer info
     if order.buyer:
         o.buyer_name = order.buyer.name
-        o.buyer_phone = order.buyer.phone
+        o.buyer_phone = order.buyer.mobile_number
 
     # Map Farmer info
     if order.farmer_:
         o.farmer_name = order.farmer_.name
-        o.farmer_phone = order.farmer_.phone
+        o.farmer_phone = order.farmer_.mobile_number
 
     # Payment status logic
     o.payment_status = "paid" if order.payment_id else "pending"

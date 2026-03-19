@@ -18,7 +18,7 @@ def _map_crop(crop) -> CropOut:
     c = CropOut.model_validate(crop)
     if crop.farmer:
         c.farmer_name = crop.farmer.name
-        c.farmer_phone = crop.farmer.phone
+        c.farmer_phone = crop.farmer.mobile_number
         c.farmer_verified = getattr(crop.farmer, 'is_verified', False)
         c.farmer_district = getattr(crop.farmer, 'district', None)
     if crop.image_url:

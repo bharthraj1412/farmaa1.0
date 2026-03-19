@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../config/env_config.dart'; // Contains EnvConfig.baseUrl
+import '../config/environment_config.dart';
 
 /// Clean custom exceptions for the UI to consume
 class UnauthorizedException implements Exception {
@@ -26,10 +25,8 @@ class ApiException implements Exception {
 /// and automatic 1-time retry workflows for 401 Unauthorized responses.
 class ApiClient {
   ApiClient._internal() {
-    // Note: Can inject a dynamic baseUrl if needed, 
-    // replacing EnvConfig.baseUrl as per project config
     _dio = Dio(BaseOptions(
-      baseUrl: EnvConfig.baseUrl, 
+      baseUrl: EnvironmentConfig.baseUrl,
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
       headers: {
@@ -46,8 +43,10 @@ class ApiClient {
   }
 
   static final ApiClient instance = ApiClient._internal();
+  factory ApiClient() => instance;
 
   late final Dio _dio;
+  Dio get dio => _dio;
   
   // Storage layer
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -55,9 +54,6 @@ class ApiClient {
   // Storage Keys
   static const String _tokenKey = 'app_jwt';
   static const String _expiryKey = 'app_jwt_expiry';
-
-  // Concurrency lock for token refreshes
-  Future<String?>? _ongoingTokenRefresh;
 
   // ── Public HTTP Methods ───────────────────────────────────────────────────
 
@@ -89,89 +85,10 @@ class ApiClient {
     return _dio.request<T>(path, data: data, queryParameters: queryParameters, options: options);
   }
 
-  // ── Authentication & Token Exchange ───────────────────────────────────────
+  // ── Token Storage ──────────────────────────────────────────────────────────
 
-  /// Calls the backend to exchange a Firebase ID token for our native HS256 JWT
-  Future<String?> exchangeFirebaseIdToken(String idToken) async {
-    try {
-      if (kDebugMode) print('[ApiClient] Skipping interceptors to exchange ID token...');
-      
-      // Perform token exchange WITHOUT our custom interceptors to avoid loops
-      final freshDio = Dio(BaseOptions(baseUrl: EnvConfig.baseUrl));
-      final user = FirebaseAuth.instance.currentUser;
-
-      final response = await freshDio.post(
-        '/auth/exchange_token',
-        data: {
-          'firebase_id_token': idToken,
-          'email': user?.email, // Backend fallback identifier
-        },
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data as Map<String, dynamic>;
-        final accessJwt = data['access_token'] as String;
-        // Default backend emits no explicit expires_in rn, assuming 1h default via prompt
-        final expiresInSeconds = data['expires_in'] as int? ?? 3600; 
-
-        await _saveBackendToken(accessJwt, expiresInSeconds);
-        return accessJwt;
-      }
-      return null;
-    } catch (e) {
-      if (kDebugMode) print('[ApiClient] Token exchange failed: $e');
-      return null;
-    }
-  }
-
-  /// Ensure we have a valid Backend token. If expired, forces a refresh against Firebase -> Backend
-  Future<String?> ensureValidBackendToken() async {
-    // 1. Thread safety: Block concurrent network refreshes
-    if (_ongoingTokenRefresh != null) {
-      return await _ongoingTokenRefresh;
-    }
-
-    _ongoingTokenRefresh = _forceTokenRefreshOrReturnValid();
-    final token = await _ongoingTokenRefresh;
-    _ongoingTokenRefresh = null;
-    return token;
-  }
-
-  Future<String?> _forceTokenRefreshOrReturnValid() async {
-    final storedToken = await _storage.read(key: _tokenKey);
-    final expiryStr = await _storage.read(key: _expiryKey);
-
-    // 2. Check Expiry
-    if (storedToken != null && expiryStr != null) {
-      final expirySeconds = int.tryParse(expiryStr) ?? 0;
-      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      
-      // Buffer of 30 seconds to prevent edge-case race conditions
-      if (nowSeconds < (expirySeconds - 30)) {
-        return storedToken; // Fast path: Still valid!
-      }
-    }
-
-    // 3. Fallback: Token is invalid or missing. Attempt to fetch a new Firebase token
-    if (kDebugMode) print('[ApiClient] Missing or expired JWT. Fetching fresh Firebase Identity...');
-    final firebaseUser = FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) {
-       return null; 
-    }
-
-    try {
-      final freshIdToken = await firebaseUser.getIdToken(true);
-      if (freshIdToken == null) return null;
-
-      // 4. Exchange new token at the backend
-      return await exchangeFirebaseIdToken(freshIdToken);
-    } catch (e) {
-       if (kDebugMode) print('[ApiClient] Failed to refresh Firebase token natively: $e');
-       return null;
-    }
-  }
-
-  Future<void> _saveBackendToken(String token, int expiresInSeconds) async {
+  /// Saves a backend JWT token received from /auth/google
+  Future<void> saveBackendToken(String token, {int expiresInSeconds = 3600}) async {
     final nowEpoch = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final expiryEpoch = nowEpoch + expiresInSeconds;
 
@@ -181,6 +98,26 @@ class ApiClient {
     ]);
   }
 
+  /// Gets the stored backend JWT, or null if missing/expired
+  Future<String?> getStoredToken() async {
+    final storedToken = await _storage.read(key: _tokenKey);
+    final expiryStr = await _storage.read(key: _expiryKey);
+
+    if (storedToken == null || expiryStr == null) return null;
+
+    final expirySeconds = int.tryParse(expiryStr) ?? 0;
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    // Buffer of 30 seconds to prevent edge-case race conditions
+    if (nowSeconds < (expirySeconds - 30)) {
+      return storedToken; // Still valid
+    }
+
+    // Token expired – clear it
+    await clearSession();
+    return null;
+  }
+
   /// Completely clears the session
   Future<void> clearSession() async {
     if (kDebugMode) print('[ApiClient] Purging secure session...');
@@ -188,11 +125,22 @@ class ApiClient {
     await _storage.delete(key: _expiryKey);
   }
 
+  /// Restores a runtime-saved custom backend URL (for local dev testing).
+  Future<void> loadPersistedBaseUrl() async {
+    final saved = await _storage.read(key: 'farmaa_base_url');
+    if (saved != null && saved.isNotEmpty) {
+      _dio.options.baseUrl = saved;
+    }
+  }
+
+  /// Legacy method kept for UI compatibility.
+  void resetCircuitBreaker() {}
+
   // ── Testing Hooks ─────────────────────────────────────────────────────────
 
   @visibleForTesting
   Future<void> forceSetJwt(String token, int expiresInSeconds) async {
-    await _saveBackendToken(token, expiresInSeconds);
+    await saveBackendToken(token, expiresInSeconds: expiresInSeconds);
   }
 }
 
@@ -204,14 +152,24 @@ class _AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    // 1. Skip paths that inherently don't require auth
-    final whiteList = ['/auth/login', '/auth/register', '/auth/firebase', '/auth/exchange_token'];
+    // 1. Skip paths that don't require auth (login, public endpoints)
+    final whiteList = [
+      '/auth/google',
+      '/auth/complete-profile',
+      '/auth/logout',
+      '/crops',              // Public marketplace listing
+    ];
     if (whiteList.any((path) => options.path.contains(path))) {
+      // Still attach token if available (for /auth/complete-profile which needs it)
+      final token = await _client.getStoredToken();
+      if (token != null) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
       return handler.next(options);
     }
 
-    // 2. Obtain valid token synchronously
-    final backendToken = await _client.ensureValidBackendToken();
+    // 2. Get stored token
+    final backendToken = await _client.getStoredToken();
 
     // 3. Log interceptor state
     if (kDebugMode) {
@@ -237,55 +195,29 @@ class _AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      if (kDebugMode) print('[ApiClient] 401 Unauthorized hit tracking interceptor target');
+      if (kDebugMode) print('[ApiClient] 401 Unauthorized on ${err.requestOptions.path}');
+
+      // Don't retry auth endpoints – just fail
+      if (err.requestOptions.path.contains('/auth/google')) {
+        return handler.next(err);
+      }
 
       // Check if we already retried this exact payload
       if (err.requestOptions.extra['retried'] == true) {
-        if (kDebugMode) print('[ApiClient] Rejecting payload. Retry array limit reached.');
-        await _client.clearSession(); // Drop token state
-        // Return clear app-facing exception
+        if (kDebugMode) print('[ApiClient] Retry already attempted. Giving up.');
+        await _client.clearSession();
         return handler.next(err.copyWith(error: UnauthorizedException()));
       }
 
       // Mark request as entering retry phase
       err.requestOptions.extra['retried'] = true;
       
-      // Wipe the known bad token so ensureValidBackendToken() forces a full Firebase refresh bypass
-      await _client.clearSession(); 
+      // Wipe the known bad token
+      await _client.clearSession();
 
-      try {
-        final newToken = await _client.ensureValidBackendToken();
-        if (newToken != null) {
-          if (kDebugMode) print('[ApiClient] Recovery successful. Retrying original request.');
-          
-          final opts = err.requestOptions;
-          opts.headers['Authorization'] = 'Bearer $newToken';
-          
-          // Retry using the core Dio instance
-          final response = await _client._dio.request(
-            opts.path,
-            data: opts.data,
-            queryParameters: opts.queryParameters,
-            options: Options(
-              method: opts.method,
-              headers: opts.headers,
-              contentType: opts.contentType,
-              responseType: opts.responseType,
-              extra: opts.extra,
-            ),
-          );
-          
-          return handler.resolve(response);
-        } else {
-          // Refresh failed
-          await _client.clearSession();
-          return handler.next(err.copyWith(error: UnauthorizedException()));
-        }
-      } catch (e) {
-        // Recovery loop entirely collapsed
-        await _client.clearSession();
-        return handler.next(err.copyWith(error: UnauthorizedException()));
-      }
+      // We can't auto-refresh anymore (no exchange_token endpoint)
+      // The user needs to re-login via Google
+      return handler.next(err.copyWith(error: UnauthorizedException()));
     }
 
     // Pass along standard non-401 exceptions

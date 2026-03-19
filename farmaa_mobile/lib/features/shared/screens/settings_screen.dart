@@ -66,7 +66,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _settingsTile(
             icon: Icons.phone_outlined,
             title: l.phone,
-            subtitle: user?.phone ?? '-',
+            subtitle: user?.mobileNumber ?? '-',
             trailing: const SizedBox.shrink(),
           ),
           _settingsTile(

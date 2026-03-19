@@ -109,7 +109,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               Text(user.name, style: Theme.of(context).textTheme.headlineSmall),
-              Text(user.phone ?? '-',
+              Text(user.email ?? '-',
                   style: const TextStyle(color: AppTheme.textMedium)),
               const SizedBox(height: 8),
 
@@ -184,21 +184,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         _tile(Icons.person_outline, l.name, u.name),
                         _divider(),
-                        _tile(Icons.phone_outlined, l.phone, u.phone ?? '-'),
-                        _divider(),
                         _tile(Icons.email_outlined, 'Email', u.email ?? '-'),
                         _divider(),
-                        if (u.village != null && u.village!.isNotEmpty) ...[
-                          _tile(Icons.location_city, l.village, u.village!),
+                        _tile(Icons.phone_outlined, l.phone,
+                            u.mobileNumber ?? '-'),
+                        _divider(),
+                        _tile(Icons.map_outlined, l.district,
+                            u.district ?? '-'),
+                        _divider(),
+                        _tile(Icons.pin_drop_outlined, 'Postal Code',
+                            u.postalCode ?? '-'),
+                        _divider(),
+                        if (u.address != null && u.address!.isNotEmpty) ...[
+                          _tile(Icons.location_on_outlined, 'Address',
+                              u.address!),
                           _divider(),
                         ],
-                        if (u.district != null && u.district!.isNotEmpty) ...[
-                          _tile(Icons.map_outlined, l.district, u.district!),
-                          _divider(),
-                        ],
-                        if (u.organization != null && u.organization!.isNotEmpty) ...[
+                        if (u.companyName != null &&
+                            u.companyName!.isNotEmpty) ...[
                           _tile(Icons.business_outlined, l.organization,
-                              u.organization!),
+                              u.companyName!),
                           _divider(),
                         ],
                         _tile(
@@ -209,8 +214,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              
-              // ── Tools / Shortcuts (Moved from Dashboards) ──
+
+              // ── Tools / Shortcuts ──
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -220,14 +225,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.bar_chart_rounded, color: AppTheme.primaryGreen),
+                      leading: const Icon(Icons.bar_chart_rounded,
+                          color: AppTheme.primaryGreen),
                       title: Text(l.marketPrices),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => context.push(AppRoutes.farmerPrices),
                     ),
                     _divider(),
                     ListTile(
-                      leading: const Icon(Icons.auto_awesome_rounded, color: AppTheme.primaryGreen),
+                      leading: const Icon(Icons.auto_awesome_rounded,
+                          color: AppTheme.primaryGreen),
                       title: Text(l.aiAssistant),
                       trailing: const Icon(Icons.chevron_right, size: 20),
                       onTap: () => context.push(AppRoutes.farmerAI),
@@ -249,10 +256,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         content: Text(l.logoutConfirm),
                         actions: [
                           TextButton(
-                              onPressed: () => Navigator.pop(dialogContext, false),
+                              onPressed: () =>
+                                  Navigator.pop(dialogContext, false),
                               child: Text(l.cancel)),
                           ElevatedButton(
-                            onPressed: () => Navigator.pop(dialogContext, true),
+                            onPressed: () =>
+                                Navigator.pop(dialogContext, true),
                             style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.errorRed),
                             child: Text(l.logout),
@@ -287,10 +296,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (user == null) return;
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController(text: user.name);
-    final phoneCtrl = TextEditingController(text: user.phone ?? '');
-    final villageCtrl = TextEditingController(text: user.village ?? '');
+    final mobileCtrl = TextEditingController(text: user.mobileNumber ?? '');
     final districtCtrl = TextEditingController(text: user.district ?? '');
-    final orgCtrl = TextEditingController(text: user.organization ?? '');
+    final postalCodeCtrl = TextEditingController(text: user.postalCode ?? '');
+    final addressCtrl = TextEditingController(text: user.address ?? '');
+    final companyCtrl = TextEditingController(text: user.companyName ?? '');
 
     showDialog(
       context: context,
@@ -316,29 +326,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     }),
                 const SizedBox(height: 12),
                 TextFormField(
-                    controller: phoneCtrl,
+                    controller: mobileCtrl,
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(labelText: l.phone),
                     validator: (v) {
                       if (v != null && v.trim().isNotEmpty) {
-                        final cleaned = v.trim().replaceAll(RegExp(r'[\s-]'), '');
-                        if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(cleaned)) {
-                          return 'Invalid phone number format';
+                        final cleaned =
+                            v.trim().replaceAll(RegExp(r'[\s-]'), '');
+                        String digits = cleaned;
+                        if (digits.startsWith('+91')) {
+                          digits = digits.substring(3);
+                        } else if (digits.startsWith('91') &&
+                            digits.length == 12) {
+                          digits = digits.substring(2);
+                        }
+                        if (!RegExp(r'^[6-9]\d{9}$').hasMatch(digits)) {
+                          return 'Invalid Indian mobile number';
                         }
                       }
                       return null;
                     }),
                 const SizedBox(height: 12),
                 TextFormField(
-                    controller: villageCtrl,
-                    decoration: InputDecoration(labelText: l.village)),
-                const SizedBox(height: 12),
-                TextFormField(
                     controller: districtCtrl,
                     decoration: InputDecoration(labelText: l.district)),
                 const SizedBox(height: 12),
                 TextFormField(
-                    controller: orgCtrl,
+                    controller: postalCodeCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        const InputDecoration(labelText: 'Postal Code (PIN)'),
+                    validator: (v) {
+                      if (v != null && v.trim().isNotEmpty) {
+                        if (!RegExp(r'^[1-9]\d{5}$').hasMatch(v.trim())) {
+                          return 'Enter a valid 6-digit PIN code';
+                        }
+                      }
+                      return null;
+                    }),
+                const SizedBox(height: 12),
+                TextFormField(
+                    controller: addressCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Address')),
+                const SizedBox(height: 12),
+                TextFormField(
+                    controller: companyCtrl,
                     decoration: InputDecoration(labelText: l.organization)),
               ],
             ),
@@ -353,10 +386,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               try {
                 await ref.read(authProvider.notifier).updateProfile(
                       name: nameCtrl.text,
-                      phone: phoneCtrl.text.isNotEmpty ? phoneCtrl.text : null,
-                      village: villageCtrl.text.isNotEmpty ? villageCtrl.text : null,
-                      district: districtCtrl.text.isNotEmpty ? districtCtrl.text : null,
-                      organization: orgCtrl.text.isNotEmpty ? orgCtrl.text : null,
+                      mobileNumber: mobileCtrl.text.isNotEmpty
+                          ? mobileCtrl.text
+                          : null,
+                      district: districtCtrl.text.isNotEmpty
+                          ? districtCtrl.text
+                          : null,
+                      postalCode: postalCodeCtrl.text.isNotEmpty
+                          ? postalCodeCtrl.text
+                          : null,
+                      address:
+                          addressCtrl.text.isNotEmpty ? addressCtrl.text : null,
+                      companyName:
+                          companyCtrl.text.isNotEmpty ? companyCtrl.text : null,
                     );
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {

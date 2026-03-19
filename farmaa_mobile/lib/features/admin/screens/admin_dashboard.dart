@@ -38,14 +38,14 @@ class _AdminStats {
 class _PendingUser {
   final String id;
   final String name;
-  final String phone;
+  final String mobileNumber;
   final String role;
   final String district;
 
   const _PendingUser({
     required this.id,
     required this.name,
-    required this.phone,
+    required this.mobileNumber,
     required this.role,
     required this.district,
   });
@@ -104,7 +104,7 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
         return _PendingUser(
           id: m['id'].toString(),
           name: m['name'] ?? '',
-          phone: m['phone'] ?? '',
+          mobileNumber: m['phone'] ?? '',
           role: m['role'] ?? 'farmer',
           district: m['district'] ?? '',
         );
@@ -116,19 +116,19 @@ class _AdminDashboardState extends ConsumerState<AdminDashboard>
         const _PendingUser(
             id: '1',
             name: 'Murugan S',
-            phone: '+91 94430 11234',
+            mobileNumber: '+91 94430 11234',
             role: 'farmer',
             district: 'Tirunelveli'),
         const _PendingUser(
             id: '2',
             name: 'Kavitha R',
-            phone: '+91 98762 55678',
+            mobileNumber: '+91 98762 55678',
             role: 'farmer',
             district: 'Madurai'),
         const _PendingUser(
             id: '3',
             name: 'Ravi Kumar',
-            phone: '+91 76543 99001',
+            mobileNumber: '+91 76543 99001',
             role: 'buyer',
             district: 'Chennai'),
       ];
@@ -418,7 +418,7 @@ class _ApprovalCard extends StatelessWidget {
                   children: [
                     Text(user.name,
                         style: const TextStyle(fontWeight: FontWeight.w700)),
-                    Text(user.phone,
+                    Text(user.mobileNumber,
                         style: const TextStyle(
                             fontSize: 12, color: AppTheme.textLight)),
                   ],

@@ -55,7 +55,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       'name': 'Farmaa',
       'description': 'Purchase of ${widget.crop.name}',
       'prefill': {
-        'contact': user?.phone ?? '9876543210',
+        'contact': user?.mobileNumber ?? '9876543210',
         'email':
             '${user?.name.replaceAll(' ', '').toLowerCase() ?? 'user'}@farmaa.in'
       },

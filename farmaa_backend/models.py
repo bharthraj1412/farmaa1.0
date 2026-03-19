@@ -17,17 +17,19 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=new_id)
+    google_id = Column(String(128), unique=True, nullable=True, index=True)
     firebase_uid = Column(String(128), unique=True, nullable=True, index=True)
-    phone = Column(String(15), unique=True, nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
-    password_hash = Column(String(255), nullable=True)
     name = Column(String(100), nullable=False)
     role = Column(String(10), nullable=False, default="buyer")
-    village = Column(String(100))
+    mobile_number = Column(String(15), unique=True, nullable=True, index=True)
     district = Column(String(100))
-    organization = Column(String(150))
+    postal_code = Column(String(10))
+    address = Column(Text)
+    company_name = Column(String(150))
     profile_image = Column(String(500))
     is_verified = Column(Boolean, default=False)
+    profile_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

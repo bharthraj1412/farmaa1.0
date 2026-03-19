@@ -13,6 +13,9 @@ class AuthState {
   const AuthState({this.user, this.isLoading = false, this.error});
 
   bool get isAuthenticated => user != null;
+  bool get needsProfileCompletion =>
+      user != null && !(user!.profileCompleted);
+
   AuthState copyWith({UserModel? user, bool? isLoading, String? error}) =>
       AuthState(
         user: user ?? this.user,
@@ -43,18 +46,10 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> register({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
+  Future<void> loginWithGoogle() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final result = await AuthService.instance.register(
-        name: name,
-        email: email,
-        password: password,
-      );
+      final result = await AuthService.instance.loginWithGoogle();
       state = AuthState(user: result.user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
@@ -62,17 +57,25 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  Future<void> login({
-    required String email,
-    required String password,
+  Future<void> completeProfile({
+    required String name,
+    required String mobileNumber,
+    required String district,
+    required String postalCode,
+    required String address,
+    String? companyName,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final result = await AuthService.instance.login(
-        email: email,
-        password: password,
+      final user = await AuthService.instance.completeProfile(
+        name: name,
+        mobileNumber: mobileNumber,
+        district: district,
+        postalCode: postalCode,
+        address: address,
+        companyName: companyName,
       );
-      state = AuthState(user: result.user, isLoading: false);
+      state = AuthState(user: user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -98,42 +101,27 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<void> updateProfile({
     required String name,
-    String? phone,
-    String? email,
-    String? village,
+    String? mobileNumber,
     String? district,
-    String? organization,
+    String? postalCode,
+    String? address,
+    String? companyName,
   }) async {
     state = state.copyWith(isLoading: true);
     try {
       final user = await AuthService.instance.updateProfile(
         name: name,
-        phone: phone,
-        email: email,
-        village: village,
+        mobileNumber: mobileNumber,
         district: district,
-        organization: organization,
+        postalCode: postalCode,
+        address: address,
+        companyName: companyName,
       );
       state = AuthState(user: user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
     }
-  }
-
-  Future<void> loginWithGoogle() async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final result = await AuthService.instance.loginWithGoogle();
-      state = AuthState(user: result.user, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
-    }
-  }
-
-  Future<void> sendPasswordResetEmail(String email) async {
-    await AuthService.instance.sendPasswordResetEmail(email);
   }
 }
 

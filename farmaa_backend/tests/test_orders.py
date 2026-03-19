@@ -1,65 +1,14 @@
-"""Tests for profile update, crop marketplace, and order flow with race conditions."""
+"""Tests for order flow with race conditions."""
 
 import pytest
 from models import User, Crop, Order
 from auth import create_access_token
-from routers.auth_router import get_password_hash
 
 
 def _auth_header(user_id: str, email: str = "test@test.com", role: str = "buyer") -> dict:
     """Create Authorization header with a backend JWT for test user."""
     token = create_access_token({"sub": user_id, "email": email, "role": role})
     return {"Authorization": f"Bearer {token}"}
-
-
-# ── Profile Update Tests ──────────────────────────────────────
-
-
-def test_profile_update_persists_village_district_org(client, setup_db):
-    """BUG FIX VALIDATION: village, district, and org must persist after PATCH."""
-    db = setup_db
-    user = User(
-        id="u1", name="Test Farmer", email="farmer@test.com",
-        password_hash=get_password_hash("pass"), role="farmer"
-    )
-    db.add(user)
-    db.commit()
-
-    headers = _auth_header("u1", "farmer@test.com", "farmer")
-    response = client.patch("/auth/me", json={
-        "name": "Updated Farmer",
-        "phone": "9876543210",
-        "village": "Srirangam",
-        "district": "Trichy",
-        "org": "Tamil Nadu Agri Coop"
-    }, headers=headers)
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "Updated Farmer"
-    assert data["phone"] == "9876543210"
-
-    # Verify via GET /auth/me
-    me = client.get("/auth/me", headers=headers)
-    assert me.status_code == 200
-    me_data = me.json()
-    assert me_data["name"] == "Updated Farmer"
-    assert me_data["phone"] == "9876543210"
-
-
-def test_profile_update_duplicate_phone_rejected(client, setup_db):
-    db = setup_db
-    u1 = User(id="u1", name="User1", email="u1@test.com",
-              phone="1111111111", password_hash=get_password_hash("pass"))
-    u2 = User(id="u2", name="User2", email="u2@test.com",
-              password_hash=get_password_hash("pass"))
-    db.add_all([u1, u2])
-    db.commit()
-
-    headers = _auth_header("u2", "u2@test.com")
-    response = client.patch("/auth/me", json={"phone": "1111111111"}, headers=headers)
-    assert response.status_code == 400
-    assert "already in use" in response.json()["detail"]
 
 
 # ── Marketplace Visibility Tests ──────────────────────────────

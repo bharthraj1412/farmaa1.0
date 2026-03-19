@@ -102,53 +102,23 @@ def get_current_user_id(
 ) -> str:
     """FastAPI dependency – extracts user_id from Bearer token.
     
-    Strategy (ordered by speed):
-    1. Try backend-issued JWT (HS256, ~0ms) – returns user_id from 'sub' claim.
-    2. Fallback: verify Firebase ID token, then resolve email→user_id via DB.
-       This path is only hit when the client hasn't exchanged tokens yet.
+    Verifies the backend-issued JWT (HS256) and returns user_id from 'sub' claim.
     """
     if credentials is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     token = credentials.credentials
     
-    # ── 1. Try fast backend JWT verification first ──
+    # Verify backend JWT
     try:
         payload = verify_token(token)
         user_id = payload.get("sub")
         if user_id:
             return user_id
     except HTTPException:
-        pass  # Not a backend JWT — try Firebase below
+        pass
     
-    # ── 2. Fallback: Firebase ID token → resolve to DB user ──
-    firebase_user = verify_firebase_id_token(token)
-    if firebase_user is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
-    email = firebase_user.get("email", "").lower()
-    firebase_uid = firebase_user.get("uid")
-    if not email and not firebase_uid:
-        raise HTTPException(status_code=401, detail="Firebase token missing identity")
-    
-    # Return a marker dict so the route can resolve the user via its own DB session.
-    # For backward compat, we need to resolve here. Use the DI-safe approach:
-    from database import SessionLocal
-    from models import User
-    if SessionLocal is None:
-        raise HTTPException(status_code=503, detail="Database not available")
-    db = SessionLocal()
-    try:
-        user = None
-        if firebase_uid:
-            user = db.query(User).filter(User.firebase_uid == firebase_uid).first()
-        if user is None and email:
-            user = db.query(User).filter(User.email == email).first()
-        if user is None:
-            raise HTTPException(status_code=401, detail="User not found. Please register first.")
-        return user.id
-    finally:
-        db.close()
+    raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 # ── Firebase ID Token Verification ──────────────────────────────────────────
@@ -179,8 +149,6 @@ def _init_firebase():
                 cred = fb_credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)
             else:
-                # Initialize without credentials but with a known project ID
-                # This is sufficient for verifying ID tokens, which is our main use case
                 project_id = os.getenv("FIREBASE_PROJECT_ID", "farmaa-bdbe3")
                 logger.warning(f"[Farmaa] Initializing Firebase without explicit credentials (ADC). Project ID: {project_id}")
                 firebase_admin.initialize_app(options={'projectId': project_id})
@@ -189,15 +157,15 @@ def _init_firebase():
         logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
     except Exception as e:
         logger.error(f"[Farmaa] Firebase Admin SDK init failed: {e}")
-        # Set to True anyway to prevent spamming the error on every request
         _firebase_initialized = True
 
 
 def verify_firebase_id_token(id_token: str) -> dict:
     """Verify a Firebase ID token and return user info.
     
+    Used for Google Sign-In via Firebase on mobile.
     Returns dict with: uid, email, name, picture, email_verified
-    Returns None if verification fails (allows fallback to custom JWT).
+    Returns None if verification fails.
     """
     try:
         _init_firebase()
@@ -210,6 +178,7 @@ def verify_firebase_id_token(id_token: str) -> dict:
         
         return {
             "uid": decoded_token.get("uid"),
+            "sub": decoded_token.get("sub"),  # Google's unique ID
             "email": decoded_token.get("email"),
             "name": decoded_token.get("name", "User"),
             "picture": decoded_token.get("picture"),
@@ -218,58 +187,3 @@ def verify_firebase_id_token(id_token: str) -> dict:
     except Exception as e:
         logger.debug(f"[Farmaa] Firebase token verification failed: {e}")
         return None
-
-
-# ── Google ID Token Verification ─────────────────────────────────────────────
-
-def verify_google_id_token(id_token: str) -> dict:
-    """Verify a Google ID token and return the user info.
-    
-    Returns dict with: sub, email, name, picture, email_verified
-    Raises HTTPException if verification fails.
-    """
-    try:
-        from google.oauth2 import id_token as google_id_token
-        from google.auth.transport import requests as google_requests
-
-        # Verify the token with Google's servers
-        idinfo = google_id_token.verify_oauth2_token(
-            id_token,
-            google_requests.Request(),
-            # Don't specify audience to accept any valid Google token
-            # In production, you should set this to your client ID
-        )
-
-        # Verify the issuer
-        if idinfo.get("iss") not in ["accounts.google.com", "https://accounts.google.com"]:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid Google token issuer",
-            )
-
-        # Check email is verified
-        if not idinfo.get("email_verified", False):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Google email not verified",
-            )
-
-        return {
-            "sub": idinfo.get("sub"),
-            "email": idinfo.get("email"),
-            "name": idinfo.get("name", "User"),
-            "picture": idinfo.get("picture"),
-            "email_verified": idinfo.get("email_verified", False),
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning(f"[Farmaa] Google token verification failed: {e}")
-        # In development, allow fallback
-        if ENVIRONMENT != "production":
-            logger.info("[Farmaa] Dev mode: Skipping Google token verification")
-            return None
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Failed to verify Google ID token",
-        )

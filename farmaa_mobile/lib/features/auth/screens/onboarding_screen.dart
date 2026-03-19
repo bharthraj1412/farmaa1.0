@@ -183,29 +183,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   ),
                                 ),
                                 child: const Text(
-                                  'LOGIN',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: () => context.go(AppRoutes.register),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  side: const BorderSide(color: Colors.white, width: 2),
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: AppTheme.radiusRound,
-                                  ),
-                                ),
-                                child: const Text(
-                                  'REGISTER',
+                                  'GET STARTED',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,

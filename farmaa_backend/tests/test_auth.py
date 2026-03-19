@@ -1,79 +1,117 @@
 import pytest
+from unittest.mock import patch
 from models import User
-from routers.auth_router import get_password_hash
+from auth import create_access_token
 
-def test_register_creates_user_and_returns_token(client, setup_db):
+# Mock Firebase token verification to return a developer placeholder
+@pytest.fixture
+def mock_firebase_verify():
+    with patch("routers.auth_router.verify_firebase_id_token") as mock_verify:
+        yield mock_verify
+
+def test_google_auth_creates_new_user(client, setup_db, mock_firebase_verify):
     db = setup_db
-    response = client.post("/auth/register", json={
-        "name": "Test User",
-        "phone": "9876543210",
-        "email": "test@example.com",
-        "password": "securepassword123"
+    # Mock the return value of Firebase token verification
+    mock_firebase_verify.return_value = {
+        "uid": "fb_uid_123",
+        "sub": "google_sub_123",
+        "email": "test@google.com",
+        "name": "Test Google User",
+        "picture": "http://photo.url",
+        "email_verified": True
+    }
+    
+    response = client.post("/auth/google", json={
+        "google_id_token": "fake_token",
+        "email": "test@google.com",
+        "name": "Test Google User"
     })
     
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
-    assert data["user"]["name"] == "Test User"
-    assert data["user"]["phone"] == "9876543210"
-    assert data["user"]["email"] == "test@example.com"
+    assert data["user"]["email"] == "test@google.com"
+    assert data["user"]["name"] == "Test Google User"
+    assert data["profile_completed"] is False
     
     # Verify user saved in DB
-    user = db.query(User).filter(User.phone == "9876543210").first()
+    user = db.query(User).filter(User.email == "test@google.com").first()
     assert user is not None
-    assert user.password_hash is not None
+    assert user.google_id == "google_sub_123"
 
-def test_register_duplicate_email(client, setup_db):
-    client.post("/auth/register", json={
-        "name": "User 1",
-        "email": "duplicate@example.com",
-        "password": "password123"
+def test_google_auth_existing_user(client, setup_db, mock_firebase_verify):
+    db = setup_db
+    # Seed an existing user
+    existing_user = User(
+        email="test@google.com",
+        name="Test Google User",
+        google_id="google_sub_123",
+        profile_completed=True
+    )
+    db.add(existing_user)
+    db.commit()
+
+    mock_firebase_verify.return_value = {
+        "uid": "fb_uid_123",
+        "sub": "google_sub_123",
+        "email": "test@google.com",
+        "name": "Test Google User",
+        "email_verified": True
+    }
+    
+    response = client.post("/auth/google", json={
+        "google_id_token": "fake_token",
+        "email": "test@google.com",
+        "name": "Test Google User"
     })
     
-    response = client.post("/auth/register", json={
-        "name": "User 2",
-        "email": "duplicate@example.com",
-        "password": "password456"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["profile_completed"] is True
+
+def test_google_auth_email_mismatch(client, mock_firebase_verify):
+    mock_firebase_verify.return_value = {
+        "uid": "fb_uid_123",
+        "sub": "google_sub_123",
+        "email": "actual@google.com",
+    }
+    
+    response = client.post("/auth/google", json={
+        "google_id_token": "fake_token",
+        "email": "fake@google.com",
+        "name": "Hacker"
     })
     
     assert response.status_code == 400
-    assert "Email already registered" in response.json()["detail"]
+    assert "Email mismatch" in response.json()["detail"]
 
-def test_login_success(client, setup_db):
+def test_complete_profile(client, setup_db):
     db = setup_db
-    # Seed a user
+    # Create an incomplete user
     user = User(
-        name="Login User",
-        email="loginuser@example.com",
-        password_hash=get_password_hash("mypassword")
+        id="u1",
+        email="test@google.com",
+        name="Test User",
+        profile_completed=False
     )
     db.add(user)
     db.commit()
-    
-    response = client.post("/auth/login", json={
-        "email_or_phone": "loginuser@example.com",
-        "password": "mypassword"
-    })
+
+    # Generate token
+    token = create_access_token({"sub": "u1", "email": "test@google.com", "role": "buyer"})
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post("/auth/complete-profile", json={
+        "name": "Updated Name",
+        "mobile_number": "+919876543210",
+        "district": "Chennai",
+        "postal_code": "600001",
+        "address": "123 Main Street"
+    }, headers=headers)
     
     assert response.status_code == 200
     data = response.json()
-    assert "access_token" in data
-    assert data["user"]["email"] == "loginuser@example.com"
-
-def test_login_invalid_password(client, setup_db):
-    db = setup_db
-    user = User(
-        name="Login User",
-        email="loginuser@example.com",
-        password_hash=get_password_hash("mypassword")
-    )
-    db.add(user)
-    db.commit()
-    
-    response = client.post("/auth/login", json={
-        "email_or_phone": "loginuser@example.com",
-        "password": "wrongpassword"
-    })
-    
-    assert response.status_code == 401
-    assert "Invalid credentials" in response.json()["detail"]
+    assert data["name"] == "Updated Name"
+    assert data["mobile_number"] == "+919876543210"
+    assert data["postal_code"] == "600001"
+    assert data["profile_completed"] is True

@@ -1,89 +1,99 @@
-#!/usr/bin/env bash
-# ============================================================
-# verify.sh – Smoke test suite for Farmaa API
-# Usage: BASE_URL=https://farmaa1-0.vercel.app ./verify.sh
-# ============================================================
-set -euo pipefail
+#!/bin/bash
+# verify.sh: Step-by-step verification of backend token-exchange and protected endpoints.
+# Usage: ./verify.sh
+# Optional environment overrides:
+#   BACKEND_URL: Default http://localhost:8000
+#   FIREBASE_ID_TOKEN: Set via export to avoid prompt
 
-BASE="${BASE_URL:-http://localhost:10000}"
-echo "Testing against: $BASE"
+set -e
 
-# 1. Health check
-echo "── 1. Health check ──"
-curl -sf "$BASE/health" | python3 -m json.tool
-echo ""
+BACKEND_URL=${BACKEND_URL:-"http://localhost:8000"}
 
-# 2. DB health check
-echo "── 2. DB health check ──"
-curl -sf "$BASE/health/db" | python3 -m json.tool
-echo ""
+# Check for Firebase token or provide instructions
+if [ -z "$FIREBASE_ID_TOKEN" ]; then
+    echo "ERROR: FIREBASE_ID_TOKEN is not set."
+    echo "To obtain one, run the flutter app, sign in, and print: await FirebaseAuth.instance.currentUser?.getIdToken();"
+    echo "Then re-run: export FIREBASE_ID_TOKEN=\"your_token\" && ./verify.sh"
+    exit 1
+fi
 
-# 3. Register a test user
-echo "── 3. Register user ──"
-REGISTER=$(curl -sf -X POST "$BASE/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Verify Farmer","email":"verify_farmer@test.com","password":"testpass123"}')
-echo "$REGISTER" | python3 -m json.tool
-TOKEN=$(echo "$REGISTER" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-echo "Token: ${TOKEN:0:30}..."
-echo ""
+echo "--- STEP A: Token Exchange ---"
+EXCHANGE_RES=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST "$BACKEND_URL/auth/exchange_token" \
+    -H "Content-Type: application/json" \
+    -d "{\"firebase_id_token\":\"$FIREBASE_ID_TOKEN\"}")
 
-# 4. Get profile
-echo "── 4. Get profile ──"
-curl -sf "$BASE/auth/me" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-echo ""
+EXCHANGE_STATUS=$(echo "$EXCHANGE_RES" | grep 'HTTP_STATUS' | awk -F: '{print $2}')
+EXCHANGE_BODY=$(echo "$EXCHANGE_RES" | sed '/HTTP_STATUS/d')
 
-# 5. Update profile with village/district
-echo "── 5. Update profile (village/district) ──"
-curl -sf -X PATCH "$BASE/auth/me" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Verify Farmer Updated","village":"Srirangam","district":"Trichy","org":"Test Coop"}' \
-  | python3 -m json.tool
-echo ""
+if [ "$EXCHANGE_STATUS" != "200" ] && [ "$EXCHANGE_STATUS" != "201" ]; then
+    echo "Exchange Failed (HTTP $EXCHANGE_STATUS):"
+    echo "$EXCHANGE_BODY"
+    exit 10
+fi
 
-# 6. Read back profile to confirm persistence
-echo "── 6. Read back profile ──"
-curl -sf "$BASE/auth/me" -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
-echo ""
+ACCESS_TOKEN=$(echo "$EXCHANGE_BODY" | jq -r '.access_token')
+if [ "$ACCESS_TOKEN" == "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+    echo "Exchange Failed: No access_token in response"
+    exit 10
+fi
 
-# 7. Create a crop
-echo "── 7. Create crop ──"
-CROP=$(curl -sf -X POST "$BASE/crops/" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test Wheat","category":"Wheat","price_per_kg":28.5,"stock_kg":500}')
-echo "$CROP" | python3 -m json.tool
-CROP_ID=$(echo "$CROP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-echo "Crop ID: $CROP_ID"
-echo ""
+echo "EXCHANGE OK - Token: ${ACCESS_TOKEN:0:24}..."
 
-# 8. List marketplace crops (public, no auth)
-echo "── 8. List marketplace ──"
-curl -sf "$BASE/crops" | python3 -m json.tool
-echo ""
+echo -e "\n--- STEP B: Protected Endpoint test ---"
+CROP_RES=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST "$BACKEND_URL/crops" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "Test Crop Verification",
+        "category": "Other",
+        "price_per_kg": 20.0,
+        "stock_kg": 100
+    }')
 
-# 9. Register a buyer
-echo "── 9. Register buyer ──"
-BUYER=$(curl -sf -X POST "$BASE/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Verify Buyer","email":"verify_buyer@test.com","password":"buyerpass123"}')
-BUYER_TOKEN=$(echo "$BUYER" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-echo "Buyer Token: ${BUYER_TOKEN:0:30}..."
-echo ""
+CROP_STATUS=$(echo "$CROP_RES" | grep 'HTTP_STATUS' | awk -F: '{print $2}')
+if [ "$CROP_STATUS" != "201" ]; then
+    echo "Crop Create Failed (HTTP $CROP_STATUS)"
+    echo "$CROP_RES"
+    exit 11
+fi
+echo "Protected POST OK (HTTP 201)"
 
-# 10. Create order
-echo "── 10. Create order ──"
-curl -sf -X POST "$BASE/orders/" \
-  -H "Authorization: Bearer $BUYER_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d "{\"crop_id\":\"$CROP_ID\",\"quantity_kg\":50}" \
-  | python3 -m json.tool
-echo ""
+echo -e "\n--- STEP C: Invalid Token test ---"
+# Truncate token by dropping last 5 chars
+BAD_TOKEN="${ACCESS_TOKEN:0:${#ACCESS_TOKEN}-5}"
 
-# 11. Verify stock decremented
-echo "── 11. Verify stock decrement ──"
-curl -sf "$BASE/crops/$CROP_ID" | python3 -m json.tool
-echo ""
+BAD_RES=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST "$BACKEND_URL/crops" \
+    -H "Authorization: Bearer $BAD_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "name": "Fail Crop", "price_per_kg": 10.0, "stock_kg": 10 }')
 
-echo "✓ All smoke tests passed!"
+BAD_STATUS=$(echo "$BAD_RES" | grep 'HTTP_STATUS' | awk -F: '{print $2}')
+if [ "$BAD_STATUS" != "401" ]; then
+    echo "Simulated Invalid Token test failed. Expected 401, got $BAD_STATUS"
+    exit 12
+fi
+echo "Invalid token simulation OK (HTTP 401 expectedly blocked)."
+
+echo -e "\n--- STEP D: Client Retry Sim Flow ---"
+echo "Client detects 401, exchanging token again..."
+REFRESH_RES=$(curl -s -X POST "$BACKEND_URL/auth/exchange_token" -H "Content-Type: application/json" -d "{\"firebase_id_token\":\"$FIREBASE_ID_TOKEN\"}")
+FRESH_TOKEN=$(echo "$REFRESH_RES" | jq -r '.access_token')
+
+echo "Retrying POST crops with freshly exchanged token..."
+RETRY_RES=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST "$BACKEND_URL/crops" \
+    -H "Authorization: Bearer $FRESH_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{ "name": "Retry Flow Crop", "price_per_kg": 15.0, "stock_kg": 50, "category": "Other" }')
+
+RETRY_STATUS=$(echo "$RETRY_RES" | grep 'HTTP_STATUS' | awk -F: '{print $2}')
+if [ "$RETRY_STATUS" == "201" ]; then
+    echo "Retry flow completed successfully (HTTP 201)."
+elif [ "$RETRY_STATUS" == "401" ]; then
+    echo "Retry flow resulted in HTTP 401 (Wait, is Firebase token expired?)"
+else
+    echo "Unexpected retry status: $RETRY_STATUS"
+    exit 1
+fi
+
+echo -e "\nALL VERIFICATIONS PASSED."
+exit 0

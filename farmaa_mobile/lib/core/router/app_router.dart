@@ -6,7 +6,7 @@ import '../providers/auth_provider.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
-import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/profile_completion_screen.dart';
 import '../../features/shared/screens/main_shell.dart';
 import '../../features/my_crops/screens/my_crops_screen.dart';
 import '../../features/my_crops/screens/crop_list_screen.dart';
@@ -31,7 +31,7 @@ class AppRoutes {
   static const splash = '/';
   static const onboarding = '/onboarding';
   static const login = '/login';
-  static const register = '/register';
+  static const completeProfile = '/complete-profile';
   // ── Unified Tabs ──
   static const home = '/home';
   static const myCrops = '/my-crops';
@@ -64,7 +64,6 @@ class AppRoutes {
 }
 
 /// A provider that creates and maintains a single GoRouter instance.
-/// This prevents the "reload loop" caused by recreating the router on state changes.
 final routerProvider = Provider<GoRouter>((ref) {
   final listenable = _RouterListenable(ref);
 
@@ -100,16 +99,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Ensure splash animation finishes before we move away from root
       if (!splashFinished && location == AppRoutes.splash) return null;
 
-      // Handle loading state - ONLY block if splash hasn't finished its window
-      // but if splash is done, we MUST transition to give user feedback.
+      // Handle loading state
       if (authState.isLoading && !splashFinished) return null;
 
       final user = authState.user;
 
-      // Unauthenticated logic
+      // ── Unauthenticated ──
       if (user == null) {
-        // If splash is done, we MUST leave the splash screen.
-        // We go to Onboarding as the default unauthenticated entry point.
         if (splashFinished && location == AppRoutes.splash) {
           return AppRoutes.onboarding;
         }
@@ -117,20 +113,29 @@ final routerProvider = Provider<GoRouter>((ref) {
         final publicRoutes = [
           AppRoutes.onboarding,
           AppRoutes.login,
-          AppRoutes.register,
         ];
         if (publicRoutes.contains(location)) return null;
         return AppRoutes.login;
       }
 
-      // Authenticated logic — redirect away from auth screens
-      // Authenticated logic — redirect away from auth screens
-      if ([AppRoutes.splash, AppRoutes.onboarding, AppRoutes.login, AppRoutes.register]
-          .contains(location)) {
-        return AppRoutes.home; // Everyone goes to Market first
+      // ── Authenticated but profile NOT completed ──
+      if (!user.profileCompleted) {
+        // Allow staying on complete-profile page
+        if (location == AppRoutes.completeProfile) return null;
+        // Redirect everywhere else to profile completion
+        return AppRoutes.completeProfile;
       }
 
-      // No more role-based guards needed! Everyone can access everything.
+      // ── Authenticated + profile completed → redirect away from auth screens ──
+      if ([
+        AppRoutes.splash,
+        AppRoutes.onboarding,
+        AppRoutes.login,
+        AppRoutes.completeProfile,
+      ].contains(location)) {
+        return AppRoutes.home;
+      }
+
       return null;
     },
     routes: [
@@ -139,7 +144,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: AppRoutes.onboarding,
           builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: AppRoutes.login, builder: (_, __) => const LoginScreen()),
-      GoRoute(path: AppRoutes.register, builder: (_, __) => const RegisterScreen()),
+      GoRoute(
+          path: AppRoutes.completeProfile,
+          builder: (_, __) => const ProfileCompletionScreen()),
 
       // ── Main Unified Shell ──────────────────────────────────────
       ShellRoute(

@@ -1,22 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../api/api_client.dart';
 import '../constants/app_constants.dart';
 import '../models/user_model.dart';
-import 'firebase_auth_service.dart';
 import 'google_auth_service.dart';
 
-/// Handles all authentication operations: Firebase email/password, token storage.
+/// Handles all authentication operations: Google Sign-In, token storage.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
-  final _dio = ApiClient().dio;
   static const _storage = FlutterSecureStorage();
   static SharedPreferences? _prefs;
 
@@ -24,106 +20,55 @@ class AuthService {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  // ── Firebase Email/Password Auth Flow ──────────────────────
+  // ── Google Sign-In Flow ─────────────────────────────────────
 
-  Future<({UserModel user, String token})> register({
+  Future<({UserModel user, String token, bool profileCompleted})> loginWithGoogle() async {
+    // 1. Perform Google Sign-In and get Firebase ID token
+    final googleResult = await GoogleAuthService.instance.signIn();
+
+    // 2. Exchange with backend via POST /auth/google
+    final response = await ApiClient.instance.post('/auth/google', data: {
+      'google_id_token': googleResult.idToken,
+      'email': googleResult.email,
+      'name': googleResult.name,
+      'profile_image': googleResult.photoUrl,
+    });
+
+    final data = response.data as Map<String, dynamic>;
+    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+    final backendToken = data['access_token'] as String;
+    final profileCompleted = data['profile_completed'] as bool? ?? false;
+
+    // 3. Store backend JWT in both secure storage for Dio and prefs
+    await ApiClient.instance.saveBackendToken(backendToken);
+    await _persistSession(token: backendToken, user: user);
+
+    return (user: user, token: backendToken, profileCompleted: profileCompleted);
+  }
+
+  // ── Profile Completion ────────────────────────────────────────
+
+  Future<UserModel> completeProfile({
     required String name,
-    required String email,
-    required String password,
+    required String mobileNumber,
+    required String district,
+    required String postalCode,
+    required String address,
+    String? companyName,
   }) async {
-    // 1. Create user in Firebase Auth
-    await FirebaseAuthService.instance.register(
-      email: email,
-      password: password,
-    );
-
-    // 2. Get Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
-      throw Exception('Failed to get Firebase token after registration');
-    }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
+    final response = await ApiClient.instance.post('/auth/complete-profile', data: {
       'name': name,
-      'email': email,
+      'mobile_number': mobileNumber,
+      'district': district,
+      'postal_code': postalCode,
+      'address': address,
+      if (companyName != null && companyName.isNotEmpty) 'company_name': companyName,
     });
 
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    // Store the backend-issued JWT, not the Firebase token
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
-  }
-
-  Future<({UserModel user, String token})> login({
-    required String email,
-    required String password,
-  }) async {
-    // 1. Sign in with Firebase Auth
-    await FirebaseAuthService.instance.login(
-      email: email,
-      password: password,
-    );
-
-    // 2. Get Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
-      throw Exception('Failed to get Firebase token after login');
-    }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
-      'email': email,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    // Store the backend-issued JWT, not the Firebase token
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
-  }
-
-  // ── Password Reset ────────────────────────────────────────
-
-  Future<void> sendPasswordResetEmail(String email) async {
-    await FirebaseAuthService.instance.sendPasswordResetEmail(email);
-  }
-
-  // ── Token Refresh ─────────────────────────────────────────
-
-  /// Refreshes the backend JWT using a freshly fetched Firebase ID token.
-  Future<String?> refreshBackendToken() async {
-    try {
-      final user = fb.FirebaseAuth.instance.currentUser;
-      if (user == null) return null;
-
-      // 1. Force refresh of the Firebase ID token
-      final idToken = await user.getIdToken(true);
-      if (idToken == null) return null;
-
-      // 2. Exchange for a new backend JWT
-      final response = await _dio.post('/auth/exchange_token', data: {
-        'firebase_id_token': idToken,
-        'email': user.email,
-      });
-
-      final data = response.data as Map<String, dynamic>;
-      final backendToken = data['access_token'] as String;
-
-      // 3. Update secure storage
-      await _storage.write(key: AppConstants.jwtKey, value: backendToken);
-      return backendToken;
-    } catch (e) {
-      debugPrint('Token refresh failed: $e');
-      return null;
-    }
+    final user = UserModel.fromJson(response.data as Map<String, dynamic>);
+    await _initPrefs();
+    await _prefs!.setString(AppConstants.userKey, jsonEncode(user.toJson()));
+    return user;
   }
 
   // ── Session Management ────────────────────────────────────
@@ -141,11 +86,6 @@ class AuthService {
 
   /// Loads the persisted user from storage, if any.
   Future<UserModel?> getPersistedUser() async {
-    // Check Firebase auth state first
-    final firebaseUser = fb.FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return null;
-
-    // Return persisted user data
     await _initPrefs();
     final raw = _prefs!.getString(AppConstants.userKey);
     if (raw == null) return null;
@@ -156,19 +96,19 @@ class AuthService {
     }
   }
 
-  /// Returns true if a Firebase user is currently signed in.
+  /// Returns true if a user session exists.
   Future<bool> isLoggedIn() async {
-    return fb.FirebaseAuth.instance.currentUser != null;
+    final token = await _storage.read(key: AppConstants.jwtKey);
+    return token != null && token.isNotEmpty;
   }
 
   /// Clears all session data and logs the user out.
   Future<void> logout() async {
     try {
-      await _dio.post('/auth/logout');
+      await ApiClient.instance.post('/auth/logout');
     } on DioException {
       // Ignore network errors on logout
     } finally {
-      await FirebaseAuthService.instance.signOut();
       await GoogleAuthService.instance.signOut();
       await _storage.deleteAll();
       await _initPrefs();
@@ -180,26 +120,26 @@ class AuthService {
 
   /// Fetches the current user's full profile from the server.
   Future<UserModel> getProfile() async {
-    final response = await _dio.get('/auth/me');
+    final response = await ApiClient.instance.get('/auth/me');
     return UserModel.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// Updates editable profile fields.
   Future<UserModel> updateProfile({
     required String name,
-    String? phone,
-    String? email,
-    String? village,
+    String? mobileNumber,
     String? district,
-    String? organization,
+    String? postalCode,
+    String? address,
+    String? companyName,
   }) async {
-    final response = await _dio.patch('/auth/me', data: {
+    final response = await ApiClient.instance.patch('/auth/me', data: {
       'name': name,
-      if (phone != null && phone.isNotEmpty) 'phone': phone,
-      if (email != null && email.isNotEmpty) 'email': email,
-      if (village != null) 'village': village,
+      if (mobileNumber != null && mobileNumber.isNotEmpty) 'mobile_number': mobileNumber,
       if (district != null) 'district': district,
-      if (organization != null) 'org': organization,
+      if (postalCode != null) 'postal_code': postalCode,
+      if (address != null) 'address': address,
+      if (companyName != null) 'company_name': companyName,
     });
     final user = UserModel.fromJson(response.data as Map<String, dynamic>);
     await _initPrefs();
@@ -208,32 +148,5 @@ class AuthService {
       jsonEncode(user.toJson()),
     );
     return user;
-  }
-
-
-  /// Login with Google Sign-In via Firebase Auth.
-  Future<({UserModel user, String token})> loginWithGoogle() async {
-    // 1. Perform Google Sign-In
-    final result = await GoogleAuthService.instance.signIn();
-
-    // 2. Get fresh Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
-        throw Exception('Failed to get Firebase token after Google login');
-    }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
-      'name': result.user.name,
-      'email': result.user.email,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
   }
 }
