@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/cart_provider.dart';
+import '../models/cart_item.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -198,10 +200,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.buyerCheckout,
             builder: (context, state) {
               final extra = state.extra as Map<String, dynamic>?;
-              if (extra == null) return const CartScreen();
+              
+              // Buy Now: single item via extra
+              if (extra != null && extra.containsKey('crop')) {
+                final crop = extra['crop'] as CropModel;
+                final qty = extra['quantity'] as double;
+                return CheckoutScreen(
+                  items: [CartItem(crop: crop, quantityKg: qty)],
+                  isCartCheckout: false,
+                );
+              }
+              
+              // Proceed to Checkout: entire cart
+              final cartItems = ref.read(cartNotifierProvider);
+              if (cartItems.isEmpty) return const CartScreen();
+              
               return CheckoutScreen(
-                crop: extra['crop'] as CropModel,
-                quantity: extra['quantity'] as double,
+                items: cartItems,
+                isCartCheckout: true,
               );
             },
           ),

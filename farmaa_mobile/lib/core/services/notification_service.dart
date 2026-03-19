@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -16,6 +17,9 @@ class NotificationService {
   final _local = FlutterLocalNotificationsPlugin();
   final _fcm = FirebaseMessaging.instance;
   bool _initialized = false;
+
+  /// Stream of incoming foreground FCM messages
+  final messageStreamController = StreamController<RemoteMessage>.broadcast();
 
   static const _channelId = 'farmaa_channel';
   static const _channelName = 'Farmaa Notifications';
@@ -69,6 +73,7 @@ class NotificationService {
           title: notification.title ?? 'Farmaa',
           body: notification.body ?? '',
         );
+        messageStreamController.add(message); // Broadcast message to Riverpod Providers
       }
     });
 

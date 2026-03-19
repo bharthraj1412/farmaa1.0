@@ -9,6 +9,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/providers/notification_provider.dart';
+import '../../shared/screens/notifications_screen.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
 import '../../../generated/l10n/app_localizations.dart';
@@ -105,6 +107,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       await NotificationService.instance.showLocal(
         title: 'Order Confirmed ✅',
         body: 'Your order for $title has been placed successfully.',
+      );
+
+      // Save to persistent notifications
+      ref.read(notificationsProvider.notifier).addNotification(
+        title: 'Order Confirmed ✅',
+        body: 'Your order for $title has been placed successfully.',
+        type: NotificationType.order,
       );
 
       if (mounted) {
