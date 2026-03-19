@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/order_model.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/order_service.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../generated/l10n/app_localizations.dart';
 
 class FarmerOrdersScreen extends ConsumerStatefulWidget {
@@ -26,7 +27,15 @@ class _FarmerOrdersScreenState extends ConsumerState<FarmerOrdersScreen> {
     setState(() => _isLoading = true);
     try {
       final orders = await OrderService.instance.getMyOrders();
-      if (mounted) setState(() => _orders = orders);
+      final user = ref.read(currentUserProvider);
+      
+      if (mounted) {
+        setState(() {
+          _orders = orders
+              .where((o) => user != null && o.farmerId == user.id)
+              .toList();
+        });
+      }
     } catch (_) {
       // demo data fallback
       if (mounted) setState(() => _orders = []);
