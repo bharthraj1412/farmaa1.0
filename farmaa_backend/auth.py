@@ -121,22 +121,23 @@ def get_current_user_id(
     raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
-# ── Firebase ID Token Verification ──────────────────────────────────────────
+# ── Firebase / Google ID Token Verification ─────────────────────────────────
 
 _firebase_initialized = False
+_firebase_available = False  # Whether Firebase Admin SDK is fully usable
+
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "farmaa-bdbe3")
 
 def _init_firebase():
-    """Initialize Firebase Admin SDK (lazy, once)."""
-    global _firebase_initialized
+    """Initialize Firebase Admin SDK (lazy, once). Sets _firebase_available if successful."""
+    global _firebase_initialized, _firebase_available
     if _firebase_initialized:
         return
     try:
         import firebase_admin
         from firebase_admin import credentials as fb_credentials
         
-        # Check if already initialized to avoid ValueError
         if not firebase_admin._apps:
-            # Try to load service account from env var or file
             cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
             cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
             
@@ -145,45 +146,94 @@ def _init_firebase():
                 cred_dict = json.loads(cred_json)
                 cred = fb_credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
+                _firebase_available = True
             elif cred_path and os.path.exists(cred_path):
                 cred = fb_credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)
+                _firebase_available = True
             else:
-                project_id = os.getenv("FIREBASE_PROJECT_ID", "farmaa-bdbe3")
-                logger.warning(f"[Farmaa] Initializing Firebase without explicit credentials (ADC). Project ID: {project_id}")
-                firebase_admin.initialize_app(options={'projectId': project_id})
+                # No credentials available – Firebase Admin SDK cannot verify tokens
+                logger.warning("[Farmaa] No Firebase credentials found. Using Google public-key fallback.")
+                _firebase_available = False
+        else:
+            _firebase_available = True
         
         _firebase_initialized = True
-        logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
+        if _firebase_available:
+            logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
     except Exception as e:
         logger.error(f"[Farmaa] Firebase Admin SDK init failed: {e}")
         _firebase_initialized = True
+        _firebase_available = False
+
+
+def _verify_with_firebase(id_token: str) -> dict:
+    """Verify using Firebase Admin SDK (requires service account credentials)."""
+    from firebase_admin import auth as firebase_auth
+    decoded_token = firebase_auth.verify_id_token(id_token)
+    return {
+        "uid": decoded_token.get("uid"),
+        "sub": decoded_token.get("sub") or decoded_token.get("user_id"),
+        "email": decoded_token.get("email"),
+        "name": decoded_token.get("name", "User"),
+        "picture": decoded_token.get("picture"),
+        "email_verified": decoded_token.get("email_verified", False),
+    }
+
+
+def _verify_with_google_public_keys(id_token: str) -> dict:
+    """Verify Firebase ID token using Google's public certificates.
+    
+    This works WITHOUT Firebase Admin SDK credentials by verifying the token
+    against Google's public keys (same as what Firebase uses internally).
+    """
+    import requests
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+
+    # Verify the token against Google's public certificates
+    # Firebase ID tokens are issued by https://securetoken.google.com/<PROJECT_ID>
+    decoded = google_id_token.verify_firebase_token(
+        id_token,
+        google_requests.Request(),
+        audience=FIREBASE_PROJECT_ID,
+    )
+    
+    return {
+        "uid": decoded.get("user_id") or decoded.get("sub"),
+        "sub": decoded.get("sub"),
+        "email": decoded.get("email"),
+        "name": decoded.get("name", "User"),
+        "picture": decoded.get("picture"),
+        "email_verified": decoded.get("email_verified", False),
+    }
 
 
 def verify_firebase_id_token(id_token: str) -> dict:
     """Verify a Firebase ID token and return user info.
     
-    Used for Google Sign-In via Firebase on mobile.
+    Strategy:
+    1. Try Firebase Admin SDK (if credentials are available)
+    2. Fall back to Google public-key verification (always works)
+    
     Returns dict with: uid, email, name, picture, email_verified
-    Returns None if verification fails.
+    Returns None if all verification methods fail.
     """
+    # Try Firebase Admin SDK first (better validation)
+    _init_firebase()
+    if _firebase_available:
+        try:
+            result = _verify_with_firebase(id_token)
+            logger.debug("[Farmaa] Token verified via Firebase Admin SDK")
+            return result
+        except Exception as e:
+            logger.warning(f"[Farmaa] Firebase Admin verification failed: {e}")
+
+    # Fallback: Google public-key verification (no credentials needed)
     try:
-        _init_firebase()
-        if not _firebase_initialized:
-            return None
-            
-        from firebase_admin import auth as firebase_auth
-        
-        decoded_token = firebase_auth.verify_id_token(id_token)
-        
-        return {
-            "uid": decoded_token.get("uid"),
-            "sub": decoded_token.get("sub"),  # Google's unique ID
-            "email": decoded_token.get("email"),
-            "name": decoded_token.get("name", "User"),
-            "picture": decoded_token.get("picture"),
-            "email_verified": decoded_token.get("email_verified", False),
-        }
+        result = _verify_with_google_public_keys(id_token)
+        logger.info("[Farmaa] Token verified via Google public keys")
+        return result
     except Exception as e:
-        logger.debug(f"[Farmaa] Firebase token verification failed: {e}")
+        logger.error(f"[Farmaa] Google public-key verification also failed: {e}")
         return None
