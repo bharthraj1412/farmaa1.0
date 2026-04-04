@@ -1,189 +1,124 @@
 # 🌾 Farmaa Mobile
 
-**From Farm to Future** — A digital marketplace connecting farmers with buyers for all grains.
+> **From Farm to Future.** A digital marketplace connecting farmers and buyers for all grains.
 
----
+Farmaa is a comprehensive B2B agriculture platform for the Indian market. It bridges the gap between farmers and buyers, enabling transparent pricing, real-time market insights, secure payments, and reliable delivery logistics. 
 
-## 📱 App Overview
+## ✨ Features
 
-| Feature | Description |
-|---------|-------------|
-| **Authentication** | Phone OTP + Google Sign-In with role selection (Farmer / Buyer / Admin) |
-| **Farmer Module** | Grain listings across 8 categories, editable pricing, order management |
-| **Buyer Module** | Browse marketplace, detailed crop view, cart system, Razorpay checkout |
-| **AI Assistant** | Real-time AI chat for price queries, yield advice, and sustainability tips |
-| **Market Prices** | Live APMC market price data for informed selling decisions |
-| **Push Notifications** | Firebase Cloud Messaging for order alerts |
-| **Admin Panel** | User verification, platform stats, dispute management |
-| **Multi-Language** | English + Tamil with instant language switching |
+- **Role-Based Workflows:** Distinct profiles and UI for Farmers, Buyers, and Admins.
+- **Market Feed:** Real-time crop listings and live price updates (powered by Supabase Realtime).
+- **In-App AI Assistant:** AI-powered conversational agent tuned for agricultural advice.
+- **Secure Authentication:** Seamless Email & Google Sign-In with Firebase Auth.
+- **End-to-End Cart & Checkout:** Shopping cart functionality seamlessly integrated with Razorpay.
+- **Live Notifications:** Stay updated with order statuses and price alerts via Firebase Cloud Messaging & local notifications.
+- **Bilingual Support:** Fully supported localized languages (English & Tamil).
 
----
+## 🛠 Tech Stack
 
-## 🚀 Prerequisites
+- **Framework:** Flutter (Dart)
+- **State Management:** Riverpod 3.x (`Notifier`, `NotifierProvider`)
+- **Backend/Database:** Supabase
+- **Authentication:** Firebase Auth, Google Sign-In
+- **Networking:** Dio
+- **Routing:** GoRouter
+- **Payments:** Razorpay
+- **Notifications:** Firebase Cloud Messaging & Flutter Local Notifications
 
-- [Flutter SDK ≥ 3.3](https://docs.flutter.dev/get-started/install/windows)
-- [Android Studio](https://developer.android.com/studio) with emulator, **or** a physical Android device
-- Java 17+ (bundled in Android Studio)
-- Run `flutter doctor` and resolve any issues
+## 📸 Screenshots
 
----
+![Login Screen](screenshots/login.png)
+![Market Feed](screenshots/market_feed.png)
+![AI Assistant](screenshots/ai_assistant.png)
+![Checkout](screenshots/checkout.png)
 
-## ⚙️ Configuration
+*(Add actual screenshots to the `screenshots/` directory)*
 
-### Backend URL
+## 🚀 Getting Started
 
-The app connects to the **Vercel cloud backend** by default:
+### Prerequisites
 
-```dart
-// lib/core/constants/app_constants.dart
-static const String prodUrl = 'https://farmaa1-0.vercel.app';
+- Flutter SDK `^3.3.0`
+- Dart SDK `^3.3.0 <4.0.0`
+- Android Studio / Xcode
+
+### Environment Variables
+
+Create a `.env` file in the root directory and add the following keys:
+
+```env
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+ENVIRONMENT=
+BASE_URL=
+RAZORPAY_KEY=
+RAZORPAY_SECRET=
 ```
 
-Environment config is managed via the `.env` file:
-```
-BASE_URL=https://farmaa1-0.vercel.app
-SUPABASE_URL=https://qhllzkyklmvvvqkpzhbj.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-```
+### Installation
 
-### Firebase
-- `android/app/google-services.json` — included ✅
-- Firebase Core + FCM initialized in `main.dart` ✅
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git
+   cd farmaa_mobile
+   ```
 
-### Razorpay
-- Test API Key in `AppConstants.razorpayKey` ✅
+2. **Install dependencies:**
+   ```bash
+   flutter pub get
+   ```
 
----
+3. **Run code generation (if modifying Riverpod/Freezed/JSON):**
+   ```bash
+   flutter pub run build_runner build --delete-conflicting-outputs
+   ```
 
-## 🏃 Running the App
+4. **Run the app:**
+   ```bash
+   flutter run
+   ```
 
-```powershell
-cd farmaa_mobile
+### Building for Production
 
-# Fetch dependencies
-flutter pub get
+To build a release APK for Android:
 
-# Generate localization files
-flutter gen-l10n
-
-# Run on connected device / emulator
-flutter run
-
-# Run on Chrome (web)
-flutter run -d chrome
-
-# Run on a specific device
-flutter devices
-flutter run -d <device_id>
+```bash
+flutter build apk --release
 ```
 
----
+## 📂 Folder Structure
 
-## 🧪 Testing
-
-```powershell
-# Static analysis
-flutter analyze
-
-# Unit + Widget tests
-flutter test
-
-# Integration tests (on device/emulator)
-flutter test integration_test/app_test.dart
+```text
+lib/
+├── core/                  # Core infrastructure, themes, routing, and shared services
+│   ├── api/
+│   ├── config/
+│   ├── constants/
+│   ├── providers/         # Global Riverpod providers
+│   ├── router/            # GoRouter configuration
+│   └── services/          # Firebase, Supabase, Notifications, Auth
+├── features/              # Feature-first modules
+│   ├── admin/
+│   ├── ai_chat/           # Farmer AI Assistant
+│   ├── auth/              # Login, Onboarding, Splash
+│   ├── cart_checkout/     # Payments and Cart logic
+│   ├── market/            # Live Market Prices and Feed
+│   ├── my_crops/          # Crop management
+│   └── shared/            # Common UI components, headers, shells
+├── generated/             # Auto-generated code (Intl)
+├── l10n/                  # Localization files (.arb)
+└── main.dart              # Application entry point
 ```
 
----
+## 📥 Download Latest APK
 
-## 🗂️ Project Structure
+Ready to test? Download the latest stable release directly:
 
-```
-farmaa_mobile/
-├── lib/
-│   ├── core/
-│   │   ├── api/           # Dio client + interceptors + circuit breaker
-│   │   ├── config/        # Environment config (.env loading)
-│   │   ├── constants/     # AppConstants (URLs, Razorpay, categories)
-│   │   ├── models/        # User, Crop, Cart, Order data models
-│   │   ├── providers/     # Riverpod providers (auth, cart, locale)
-│   │   ├── router/        # GoRouter with role-based guards
-│   │   ├── services/      # Crop, Auth, AI, Order, Notification services
-│   │   ├── theme/         # AppTheme (colors, typography, shadows)
-│   │   └── widgets/       # Reusable widgets (NetworkErrorWidget)
-│   ├── features/
-│   │   ├── auth/          # Splash, Onboarding, Login screens
-│   │   ├── farmer/        # Dashboard, Crops, Market Prices, AI, Orders
-│   │   ├── buyer/         # Dashboard, Crop Detail, Cart, Checkout, Orders
-│   │   ├── shared/        # Profile, Notifications, Settings screens
-│   │   ├── ai_chat/       # AI chat assistant screen
-│   │   └── admin/         # Admin dashboard with tabs
-│   ├── generated/         # Auto-generated localization files
-│   ├── l10n/              # ARB translation files (English + Tamil)
-│   └── main.dart          # App entry point
-├── android/               # Android platform config
-├── test/                  # Unit & widget tests
-└── integration_test/      # Integration tests
-```
+[Download APK](https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest)
 
----
+## 🤝 Contributing & License
 
-## 🌾 Grain Categories
+Contributions, issues, and feature requests are welcome!
+Feel free to check [issues page](https://github.com/YOUR_USERNAME/YOUR_REPO/issues).
 
-| Category | Emoji |
-|----------|-------|
-| Rice | 🌾 |
-| Wheat | 🌿 |
-| Millet | 🌻 |
-| Barley | 🌰 |
-| Sorghum | 🌱 |
-| Maize | 🌽 |
-| Pulses | 🫘 |
-| Other | 🌾 |
-
----
-
-## 🔑 Key Business Rules
-
-| Rule | Details |
-|------|---------|
-| **Editable Pricing** | Farmers can update crop prices anytime |
-| **Minimum Order** | Default 50 kg per order (configurable per crop) |
-| **Role Routing** | Farmers → `/farmer/*`, Buyers → `/buyer/*`, Admin → `/admin` |
-| **Cart System** | Buyers can add multiple items, adjust quantities, checkout |
-| **OTP Login** | Demo OTP: `123456` (works in offline/demo mode) |
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| UI | Flutter 3.x |
-| State | Riverpod 2 |
-| HTTP | Dio + interceptors |
-| Navigation | go_router |
-| Storage | flutter_secure_storage |
-| Push | firebase_messaging |
-| Charts | fl_chart |
-| Payment | razorpay_flutter |
-| i18n | flutter_localizations + ARB |
-| Backend | FastAPI + Supabase PostgreSQL |
-| Hosting | Vercel (Serverless) |
-
----
-
-## 🌐 Architecture
-
-```
-┌─────────────────┐     HTTPS      ┌──────────────┐        ┌──────────────┐
-│  Flutter Mobile  │ ──────────────▶│  Vercel API  │───────▶│   Supabase   │
-│  (Android/iOS/   │◀────────────── │  (FastAPI)   │◀───────│  PostgreSQL  │
-│   Web)           │                └──────────────┘        └──────────────┘
-└─────────────────┘
-```
-
----
-
-## 📞 Contact
-
-**Farmaa** – From Farm to Future  
-bharathraj1412p@gmail.com
+Distributed under the MIT License. See `LICENSE` for more information.

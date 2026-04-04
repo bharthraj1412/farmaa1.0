@@ -66,7 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Safety check for state resolve; GoRouter redirect uses this flag
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(splashFinishedProvider.notifier).state = true;
+        ref.read(splashFinishedProvider.notifier).setFinished(true);
       }
     });
   }

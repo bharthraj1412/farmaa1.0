@@ -59,26 +59,27 @@ class MainShell extends StatelessWidget {
         onDestinationSelected: (index) => _onItemTapped(index, context),
         backgroundColor: Colors.white,
         indicatorColor: AppTheme.primaryGreen.withValues(alpha: 0.15),
+        labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront, color: AppTheme.primaryGreen),
-            label: 'Market', // Replaced l.browse with explicit label if missing
+          NavigationDestination(
+            icon: const Icon(Icons.storefront_outlined),
+            selectedIcon: const Icon(Icons.storefront, color: AppTheme.primaryGreen),
+            label: l.browse,
           ),
           NavigationDestination(
             icon: const Icon(Icons.grass_outlined),
             selectedIcon: const Icon(Icons.grass, color: AppTheme.primaryGreen),
             label: l.myCrops,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart, color: AppTheme.primaryGreen),
-            label: 'Cart',
+          NavigationDestination(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            selectedIcon: const Icon(Icons.shopping_cart, color: AppTheme.primaryGreen),
+            label: l.cart,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long, color: AppTheme.primaryGreen),
-            label: 'Orders',
+          NavigationDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long, color: AppTheme.primaryGreen),
+            label: l.orders,
           ),
           NavigationDestination(
             icon: const Icon(Icons.person_outline),

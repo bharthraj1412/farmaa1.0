@@ -58,7 +58,7 @@ class NotificationService {
     );
 
     await _local.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (NotificationResponse response) {
         debugPrint('[Notification] Tapped: ${response.payload}');
         // Navigation based on payload can be added here
@@ -80,7 +80,7 @@ class NotificationService {
           playSound: true,
           enableVibration: true,
           enableLights: true,
-          ledColor: const Color(0xFF1A5E20),
+          ledColor: Color(0xFF1A5E20),
         ),
       );
 
@@ -218,10 +218,10 @@ class NotificationService {
     );
 
     await _local.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      details,
+      id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: details,
       payload: payload,
     );
 

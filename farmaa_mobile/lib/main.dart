@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/google_auth_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/realtime_service.dart';
 import 'core/api/api_client.dart';
@@ -33,6 +34,8 @@ void main() async {
     );
     await Firebase.initializeApp();
     await NotificationService.instance.init();
+    // Initialize Google Sign-In singleton (required by google_sign_in v7)
+    await GoogleAuthService.instance.initialize();
     // Start Supabase Realtime subscriptions for live price updates
     await RealtimeService.instance.init();
     debugPrint('[Farmaa] All services initialized successfully ✓');

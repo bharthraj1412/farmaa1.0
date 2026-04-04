@@ -147,22 +147,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   const SizedBox(height: 24),
                   Text(
                     l.appName,
-                    style: GoogleFonts.poppins(
-                      fontSize: 36,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 1,
-                    ),
+                    style: isTamil
+                        ? TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          )
+                        : GoogleFonts.poppins(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 1,
+                          ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     l.tagline,
-                    style: GoogleFonts.nunito(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.8),
-                      letterSpacing: 0.5,
-                    ),
+                    textAlign: TextAlign.center,
+                    style: isTamil
+                        ? TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          )
+                        : GoogleFonts.nunito(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.8),
+                            letterSpacing: 0.5,
+                          ),
                   ),
 
                   const Spacer(flex: 2),
@@ -241,14 +254,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  isTamil
-                                      ? 'Google மூலம் உள்நுழைக'
-                                      : 'Continue with Google',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textDark,
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      isTamil
+                                          ? 'Google மூலம் உள்நுழைக'
+                                          : 'Continue with Google',
+                                      style: isTamil
+                                          ? TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.textDark,
+                                            )
+                                          : GoogleFonts.poppins(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.textDark,
+                                            ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -264,11 +288,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ? 'தொடர்வதன் மூலம், நிபந்தனைகளை ஏற்கிறீர்கள்'
                         : 'By continuing, you agree to our Terms of Service\nand Privacy Policy',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.nunito(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      height: 1.5,
-                    ),
+                    style: isTamil
+                        ? TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.5),
+                            height: 1.5,
+                          )
+                        : GoogleFonts.nunito(
+                            fontSize: 12,
+                            color: Colors.white.withValues(alpha: 0.5),
+                            height: 1.5,
+                          ),
                   ),
 
                   const Spacer(flex: 1),

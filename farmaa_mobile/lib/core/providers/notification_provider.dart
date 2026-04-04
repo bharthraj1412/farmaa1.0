@@ -5,16 +5,18 @@ import '../../features/shared/screens/notifications_screen.dart'; // To get Noti
 import '../services/notification_service.dart';
 
 final notificationsProvider =
-    StateNotifierProvider<NotificationNotifier, List<NotificationItem>>((ref) {
+    NotifierProvider<NotificationNotifier, List<NotificationItem>>(() {
   return NotificationNotifier();
 });
 
-class NotificationNotifier extends StateNotifier<List<NotificationItem>> {
+class NotificationNotifier extends Notifier<List<NotificationItem>> {
   static const _prefsKey = 'user_notifications';
 
-  NotificationNotifier() : super([]) {
+  @override
+  List<NotificationItem> build() {
     _load();
     _listenToFCM();
+    return [];
   }
 
   void _listenToFCM() {

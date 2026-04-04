@@ -135,7 +135,18 @@ final authProvider = NotifierProvider<AuthNotifier, AuthState>(
   AuthNotifier.new,
 );
 
-final splashFinishedProvider = StateProvider<bool>((ref) => false);
+class SplashFinishedNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setFinished(bool isFinished) {
+    state = isFinished;
+  }
+}
+
+final splashFinishedProvider = NotifierProvider<SplashFinishedNotifier, bool>(
+  SplashFinishedNotifier.new,
+);
 
 final currentUserProvider = Provider<UserModel?>((ref) {
   return ref.watch(authProvider).user;
