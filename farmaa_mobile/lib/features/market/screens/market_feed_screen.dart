@@ -251,11 +251,6 @@ class _MarketFeedScreenState extends ConsumerState<MarketFeedScreen> {
         ],
       ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(AppRoutes.aiChat),
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-      ),
     );
   }
 }

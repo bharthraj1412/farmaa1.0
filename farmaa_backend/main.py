@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 
 from database import Base, engine
-from routers import auth_router, crops_router, orders_router, ai_router, market_router
+from routers import auth_router, crops_router, orders_router, market_router
 from middleware import SecurityHeadersMiddleware, RequestLoggingMiddleware
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
@@ -93,7 +93,6 @@ except ImportError:
 app.include_router(auth_router)
 app.include_router(crops_router)
 app.include_router(orders_router)
-app.include_router(ai_router)
 app.include_router(market_router)
 
 

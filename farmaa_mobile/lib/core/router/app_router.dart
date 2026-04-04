@@ -22,7 +22,7 @@ import '../../features/cart_checkout/screens/checkout_screen.dart';
 import '../../features/market/screens/crop_detail_screen.dart';
 import '../../features/shared/screens/profile_screen.dart';
 import '../../features/shared/screens/settings_screen.dart';
-import '../../features/ai_chat/screens/ai_chat_screen.dart';
+
 import '../../features/admin/screens/admin_dashboard.dart';
 import '../../features/cart_checkout/screens/order_confirmation_screen.dart';
 import '../../features/shared/screens/notifications_screen.dart';
@@ -58,7 +58,7 @@ class AppRoutes {
   static const farmerAI = '/farmer/ai';
   static const buyerCropDetail = '/buyer/crop/:id';
   static const buyerCheckout = '/buyer/checkout';
-  static const aiChat = '/ai-chat';
+
   static const settings = '/settings';
   static const admin = '/admin';
   static const notifications = '/notifications';
@@ -223,10 +223,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      GoRoute(
-        path: AppRoutes.aiChat,
-        builder: (_, __) => const AIChatScreen(),
-      ),
+
       GoRoute(
         path: AppRoutes.settings,
         builder: (_, __) => const SettingsScreen(),
