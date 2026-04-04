@@ -144,7 +144,7 @@ def _find_fallback(query: str) -> tuple:
     return None, None
 
 
-async def _call_openrouter(messages: list[dict]) -> str:
+async def _call_openrouter(messages: List[dict]) -> str:
     """Call OpenRouter API and return the assistant message content."""
     if not OPENROUTER_API_KEY:
         raise ValueError("OPENROUTER_API_KEY not configured")

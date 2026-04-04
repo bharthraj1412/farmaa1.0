@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, List
 import logging
 
 from database import get_db
@@ -78,13 +78,13 @@ def list_crops(
     }
 
 
-@router.get("/my-listings", response_model=list[CropOut])
+@router.get("/my-listings", response_model=List[CropOut])
 def my_listings(user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
     crops = db.query(Crop).filter(Crop.farmer_id == user_id).order_by(Crop.created_at.desc()).all()
     return [_map_crop(c) for c in crops]
 
 
-@router.get("/notifications/latest", response_model=list[CropOut])
+@router.get("/notifications/latest", response_model=List[CropOut])
 def latest_crops(
     hours: int = Query(24, ge=1, le=168),
     db: Session = Depends(get_db),
