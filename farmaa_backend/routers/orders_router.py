@@ -70,7 +70,7 @@ def create_order(body: OrderCreate, user_id: str = Depends(get_current_user_id),
     # read the same stock value before decrementing.
     crop = db.query(Crop).filter(
         Crop.id == body.crop_id
-    ).with_for_update().first()
+    ).with_for_update(of=Crop).first()
 
     if crop is None:
         raise HTTPException(status_code=404, detail="Crop not found")
@@ -210,7 +210,7 @@ def update_order_status(
 
     # Restore stock if cancelled
     if body.status == "cancelled":
-        crop = db.query(Crop).filter(Crop.id == order.crop_id).with_for_update().first()
+        crop = db.query(Crop).filter(Crop.id == order.crop_id).with_for_update(of=Crop).first()
         if crop:
             crop.stock_kg += order.quantity_kg
             if not crop.is_available:
