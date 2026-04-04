@@ -37,6 +37,7 @@ class OrderService {
     String? razorpayOrderId,
     String? signature,
     String? cropName,
+    String? deliveryAddress,
   }) async {
     try {
       final response = await _dio.post('/orders/', data: {
@@ -45,9 +46,12 @@ class OrderService {
         if (paymentId != null) 'payment_id': paymentId,
         if (razorpayOrderId != null) 'razorpay_order_id': razorpayOrderId,
         if (signature != null) 'razorpay_signature': signature,
+        if (deliveryAddress != null && deliveryAddress.isNotEmpty)
+          'delivery_address': deliveryAddress,
       });
 
-      final order = OrderModel.fromJson(response.data as Map<String, dynamic>);
+      final order =
+          OrderModel.fromJson(response.data as Map<String, dynamic>);
 
       // Show order confirmation notification
       final name = cropName ?? order.cropName;
@@ -81,7 +85,8 @@ class OrderService {
         data: {'status': status},
       );
 
-      final order = OrderModel.fromJson(response.data as Map<String, dynamic>);
+      final order =
+          OrderModel.fromJson(response.data as Map<String, dynamic>);
       final name = cropName ?? order.cropName;
 
       // Show status-specific notification
@@ -122,7 +127,8 @@ class OrderService {
 
       case OrderStatus.delivered:
         title = '✅ Order Delivered';
-        body = 'Your $cropName has been delivered. Thank you for using Farmaa!';
+        body =
+            'Your $cropName has been delivered. Thank you for using Farmaa!';
         break;
 
       case OrderStatus.cancelled:

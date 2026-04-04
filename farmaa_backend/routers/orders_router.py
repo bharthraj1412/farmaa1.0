@@ -99,9 +99,21 @@ def create_order(body: OrderCreate, user_id: str = Depends(get_current_user_id),
 
     total = round(body.quantity_kg * crop.price_per_kg, 2)
 
-    # FIX: fall back to buyer's profile address if none provided
+    # FIX: robust delivery address fallback
     raw_address = body.delivery_address or buyer.address or ""
-    delivery_address = sanitize_string(raw_address, max_length=500) if raw_address else None
+    if not raw_address.strip() and buyer.district:
+        # Build address from profile fields
+        raw_address = f"{buyer.district}"
+        if buyer.postal_code:
+            raw_address += f", {buyer.postal_code}"
+    delivery_address = sanitize_string(raw_address, max_length=500) if raw_address.strip() else None
+
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"[Farmaa] Creating order: buyer={user_id}, crop={body.crop_id}, "
+        f"qty={body.quantity_kg}kg, total=₹{total}, payment={body.payment_id}"
+    )
 
     order = Order(
         buyer_id=user_id,

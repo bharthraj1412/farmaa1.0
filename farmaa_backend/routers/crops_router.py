@@ -1,15 +1,19 @@
-"""Crops router – CRUD for grain listings with input validation."""
+"""Crops router – CRUD for grain listings with input validation and role enforcement."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from sqlalchemy import text
+from datetime import datetime, timezone, timedelta
 from typing import Optional
+import logging
 
 from database import get_db
 from models import Crop, User
 from schemas import CropCreate, CropUpdate, CropOut, CropListResponse
 from auth import get_current_user_id
 from middleware import sanitize_string, sanitize_search_query
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/crops", tags=["Crops"])
 
@@ -24,6 +28,16 @@ def _map_crop(crop) -> CropOut:
     if crop.image_url:
         c.images = [crop.image_url]
     return c
+
+
+def _require_farmer(user: User):
+    """Guard: only farmers can create/edit/delete crop listings."""
+    if user.role != "farmer":
+        raise HTTPException(
+            status_code=403,
+            detail="Only farmers can manage crop listings. "
+                   "Switch your role to 'farmer' in Profile settings."
+        )
 
 
 @router.get("", response_model=CropListResponse)
@@ -41,13 +55,11 @@ def list_crops(
         Crop.status == "approved"
     )
     if category:
-        # Validate category against known values
         valid_categories = {"Rice", "Wheat", "Millet", "Barley", "Sorghum", "Maize", "Pulses", "Other"}
         if category not in valid_categories:
             raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of: {valid_categories}")
         query = query.filter(Crop.category == category)
     if search:
-        # Sanitize search input to prevent LIKE pattern abuse
         safe_search = sanitize_search_query(search)
         from sqlalchemy import or_
         query = query.filter(
@@ -72,6 +84,21 @@ def my_listings(user_id: str = Depends(get_current_user_id), db: Session = Depen
     return [_map_crop(c) for c in crops]
 
 
+@router.get("/notifications/latest", response_model=list[CropOut])
+def latest_crops(
+    hours: int = Query(24, ge=1, le=168),
+    db: Session = Depends(get_db),
+):
+    """Get crops listed in the last N hours – used for new-crop notifications."""
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    crops = db.query(Crop).filter(
+        Crop.created_at >= since,
+        Crop.is_available == True,
+        Crop.is_active == True,
+    ).order_by(Crop.created_at.desc()).limit(10).all()
+    return [_map_crop(c) for c in crops]
+
+
 @router.get("/{crop_id}", response_model=CropOut)
 def get_crop(crop_id: str, db: Session = Depends(get_db)):
     crop = db.query(Crop).filter(Crop.id == crop_id).first()
@@ -87,6 +114,9 @@ def create_crop(body: CropCreate, user_id: str = Depends(get_current_user_id), d
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # ── ROLE CHECK: Only farmers can list crops ──
+    _require_farmer(user)
 
     # Validate price and stock
     if body.price_per_kg <= 0:
@@ -113,11 +143,28 @@ def create_crop(body: CropCreate, user_id: str = Depends(get_current_user_id), d
     db.add(crop)
     db.commit()
     db.refresh(crop)
+
+    # ── Notify: broadcast new crop event ──
+    try:
+        db.execute(text(
+            "SELECT pg_notify('new_crop', :payload)"
+        ), {"payload": f'{{"crop_id":"{crop.id}","name":"{crop.name}","farmer":"{user.name}","category":"{crop.category}","price":{crop.price_per_kg}}}'})
+        db.commit()
+        logger.info(f"[Farmaa] New crop listed: {crop.name} by {user.name}")
+    except Exception as e:
+        logger.warning(f"[Farmaa] pg_notify failed (non-critical): {e}")
+
     return _map_crop(crop)
 
 
 @router.put("/{crop_id}", response_model=CropOut)
 def update_crop(crop_id: str, body: CropUpdate, user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    # Verify user exists and is farmer
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    _require_farmer(user)
+
     crop = db.query(Crop).filter(Crop.id == crop_id, Crop.farmer_id == user_id).first()
     if crop is None:
         raise HTTPException(status_code=404, detail="Crop not found or not owned by you")
@@ -153,6 +200,12 @@ def update_crop(crop_id: str, body: CropUpdate, user_id: str = Depends(get_curre
 
 @router.delete("/{crop_id}", status_code=204)
 def delete_crop(crop_id: str, user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    # Verify user exists and is farmer
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    _require_farmer(user)
+
     crop = db.query(Crop).filter(Crop.id == crop_id, Crop.farmer_id == user_id).first()
     if crop is None:
         raise HTTPException(status_code=404, detail="Crop not found or not owned by you")

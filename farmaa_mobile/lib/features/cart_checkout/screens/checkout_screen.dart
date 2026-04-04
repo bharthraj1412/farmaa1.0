@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -44,7 +45,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
     _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
 
-    // Check profile completion on load
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkProfile());
   }
 
@@ -78,7 +78,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   // ── Payment flow ──────────────────────────────────────────────────────────
 
   void _startPayment() {
-    // Re-check profile before starting payment
     final user = ref.read(currentUserProvider);
     if (user == null || !user.profileCompleted) {
       _showError('Please complete your profile before ordering.');
@@ -90,14 +89,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final options = {
       'key': AppConstants.razorpayKey,
-      'amount': (_totalAmount * 100).toInt(), // paise
+      'amount': (_totalAmount * 100).toInt(),
       'name': 'Farmaa',
       'description': widget.items.length == 1
           ? 'Purchase of ${widget.items.first.crop.name}'
           : 'Purchase of ${widget.items.length} items',
       'prefill': {
         'contact': user.mobileNumber ?? '9876543210',
-        'email': user.email ?? '${user.name.replaceAll(' ', '').toLowerCase()}@farmaa.in',
+        'email': user.email ??
+            '${user.name.replaceAll(' ', '').toLowerCase()}@farmaa.in',
       },
       'theme': {'color': '#1A5E20'},
       'external': {
@@ -115,8 +115,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     setState(() => _isProcessing = true);
 
+    final user = ref.read(currentUserProvider);
+    final deliveryAddress = user?.address ??
+        (user?.district != null
+            ? '${user!.district}${user.postalCode != null ? ', ${user.postalCode}' : ''}'
+            : null);
+
     final successItems = <CartItem>[];
     final failedItems = <CartItem>[];
+    final failedReasons = <String>[];
 
     try {
       for (final item in widget.items) {
@@ -128,11 +135,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             razorpayOrderId: response.orderId,
             signature: response.signature,
             cropName: item.crop.name,
+            deliveryAddress: deliveryAddress,
           );
           successItems.add(item);
         } catch (e) {
           debugPrint('[Checkout] Order failed for ${item.crop.name}: $e');
           failedItems.add(item);
+          // Extract actual server error message
+          String reason = 'Unknown error';
+          if (e is DioException && e.response?.data is Map) {
+            reason = e.response?.data['detail'] ?? reason;
+          } else {
+            reason = e.toString().replaceAll('Exception: ', '');
+          }
+          failedReasons.add('${item.crop.name}: $reason');
         }
       }
 
@@ -148,7 +164,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         final totalQty =
             successItems.fold(0.0, (sum, item) => sum + item.quantityKg);
 
-        // Save to notification history
         ref.read(notificationsProvider.notifier).addNotification(
               title: '✅ Order Confirmed!',
               body: 'Your order for $title has been placed. '
@@ -159,24 +174,28 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         if (mounted) {
           if (failedItems.isNotEmpty) {
             _showError(
-                '${successItems.length} order(s) placed. ${failedItems.length} failed.');
+                '${successItems.length} order(s) placed. '
+                '${failedItems.length} failed:\n${failedReasons.join("\n")}');
           }
           context.go(
             AppRoutes.orderConfirmation,
             extra: {
-              'orderId':
-                  response.paymentId ?? 'ORD-${DateTime.now().millisecondsSinceEpoch}',
+              'orderId': response.paymentId ??
+                  'ORD-${DateTime.now().millisecondsSinceEpoch}',
               'cropName': title,
               'quantity': totalQty,
-              'totalAmount': successItems.fold(0.0, (s, i) => s + i.subtotal),
+              'totalAmount':
+                  successItems.fold(0.0, (s, i) => s + i.subtotal),
             },
           );
         }
       } else {
-        // All orders failed — likely profile issue
-        _showError('Failed to place orders. '
-            'Please ensure your profile is complete and try again.');
-        // Show notification about failure
+        // All orders failed — show detailed error
+        final errorMsg = failedReasons.isNotEmpty
+            ? 'Order failed:\n${failedReasons.join("\n")}'
+            : 'Failed to place orders. Please ensure your profile is complete.';
+        _showError(errorMsg);
+
         await NotificationService.instance.showOrderNotification(
           title: '❌ Order Failed',
           body: 'Your payment was processed but orders could not be placed. '
@@ -207,9 +226,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(msg, maxLines: 5),
         backgroundColor: AppTheme.errorRed,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 6),
         action: SnackBarAction(
           label: 'OK',
           textColor: Colors.white,
@@ -224,17 +243,38 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final user = ref.watch(currentUserProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l.checkout)),
       body: _isProcessing
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppTheme.primaryGreen),
-                  SizedBox(height: 16),
-                  Text('Processing your order...'),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const CircularProgressIndicator(
+                      color: AppTheme.primaryGreen,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Processing your order...',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Please wait, do not close the app',
+                    style: TextStyle(color: AppTheme.textLight, fontSize: 13),
+                  ),
                 ],
               ),
             )
@@ -255,7 +295,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       children: [
                         Text(
                           l.orderSummary,
-                          style: Theme.of(context).textTheme.titleLarge,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 16),
 
@@ -267,37 +310,103 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 const Divider(height: 20),
                             itemBuilder: (ctx, i) {
                               final item = widget.items[i];
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _summaryRow(
-                                    l.crop,
-                                    '${item.crop.emoji} ${item.crop.name}',
-                                  ),
-                                  _summaryRow(
-                                    'Farmer',
-                                    item.crop.farmerName,
-                                  ),
-                                  _summaryRow(
-                                    l.quantity,
-                                    '${item.quantityKg.toStringAsFixed(1)} kg',
-                                  ),
-                                  _summaryRow(
-                                    l.pricePerKg,
-                                    '₹${item.crop.pricePerKg.toStringAsFixed(2)}',
-                                  ),
-                                  _summaryRow(
-                                    'Subtotal',
-                                    '₹${item.subtotal.toStringAsFixed(2)}',
-                                    isBold: true,
-                                  ),
-                                ],
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: AppTheme.radiusMedium,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.04),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    _summaryRow(
+                                      l.crop,
+                                      '${item.crop.emoji} ${item.crop.name}',
+                                    ),
+                                    _summaryRow(
+                                      'Farmer',
+                                      item.crop.farmerName,
+                                    ),
+                                    _summaryRow(
+                                      l.quantity,
+                                      '${item.quantityKg.toStringAsFixed(1)} kg',
+                                    ),
+                                    _summaryRow(
+                                      l.pricePerKg,
+                                      '₹${item.crop.pricePerKg.toStringAsFixed(2)}',
+                                    ),
+                                    const Divider(height: 12),
+                                    _summaryRow(
+                                      'Subtotal',
+                                      '₹${item.subtotal.toStringAsFixed(2)}',
+                                      isBold: true,
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           ),
                         ),
 
-                        const Divider(height: 32, thickness: 2),
+                        // Delivery address
+                        if (user?.address != null &&
+                            user!.address!.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGreen
+                                  .withValues(alpha: 0.05),
+                              borderRadius: AppTheme.radiusMedium,
+                              border: Border.all(
+                                color: AppTheme.primaryGreen
+                                    .withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on,
+                                    size: 18,
+                                    color: AppTheme.primaryGreen),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Delivery Address',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textLight,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        user.address!,
+                                        style: const TextStyle(fontSize: 13),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const Divider(height: 24, thickness: 2),
 
                         _summaryRow(
                           l.totalAmount,
@@ -311,7 +420,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.lock, size: 14, color: AppTheme.textLight),
+                            const Icon(Icons.lock,
+                                size: 14, color: AppTheme.textLight),
                             const SizedBox(width: 4),
                             Text(
                               'Secured by Razorpay',
@@ -322,24 +432,33 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
                         // Pay button
                         SizedBox(
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton.icon(
-                            onPressed: _profileError != null ? null : _startPayment,
+                            onPressed: _profileError != null
+                                ? null
+                                : _startPayment,
                             icon: const Icon(Icons.payment),
                             label: Text(
                               _profileError != null
                                   ? 'Complete Profile First'
                                   : '${l.payNow} ₹${_totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _profileError != null
                                   ? AppTheme.textLight
                                   : AppTheme.primaryGreen,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
                             ),
                           ),
                         ),
@@ -348,10 +467,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                           const SizedBox(height: 12),
                           SizedBox(
                             width: double.infinity,
-                            child: OutlinedButton(
+                            child: OutlinedButton.icon(
                               onPressed: () =>
                                   context.go(AppRoutes.completeProfile),
-                              child: const Text('Complete My Profile'),
+                              icon: const Icon(Icons.person_outline),
+                              label: const Text('Complete My Profile'),
                             ),
                           ),
                         ],
