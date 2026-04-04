@@ -50,5 +50,6 @@ apks/
 # Nested backend
 farmaa_backend/
 .env*
-analyze.txt
+*analyze*.txt
 out.txt
+results*.txt
