@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/locale_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../generated/l10n/app_localizations.dart';
 
-/// Minimal Google-only login screen.
+/// Minimal Google-only login screen with language toggle.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -37,13 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    setState(() { _isLoading = true; _error = null; });
     try {
       await ref.read(authProvider.notifier).loginWithGoogle();
-      // Router will redirect based on profileCompleted
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -54,8 +52,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  void _toggleLanguage() {
+    final current = ref.read(localeProvider);
+    ref.read(localeProvider.notifier).setLocale(
+      current.languageCode == 'en' ? const Locale('ta') : const Locale('en'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l       = AppLocalizations.of(context);
+    final locale  = ref.watch(localeProvider);
+    final isTamil = locale.languageCode == 'ta';
 
     return Scaffold(
       body: Container(
@@ -80,9 +88,47 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 children: [
-                  const Spacer(flex: 3),
+                  // ── Language toggle ──────────────────────────
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: GestureDetector(
+                        onTap: _toggleLanguage,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(isTamil ? '🇮🇳' : '🇬🇧',
+                                  style: const TextStyle(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text(
+                                isTamil ? 'தமிழ்' : 'English',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
-                  // ── Logo & Brand ──
+                  const Spacer(flex: 2),
+
+                  // ── Logo & Brand ─────────────────────────────
                   Container(
                     width: 100,
                     height: 100,
@@ -95,15 +141,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                     ),
                     child: const Center(
-                      child: Text(
-                        '🌾',
-                        style: TextStyle(fontSize: 48),
-                      ),
+                      child: Text('🌾', style: TextStyle(fontSize: 48)),
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Farmaa',
+                    l.appName,
                     style: GoogleFonts.poppins(
                       fontSize: 36,
                       fontWeight: FontWeight.w700,
@@ -113,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'From Farm to Future',
+                    l.tagline,
                     style: GoogleFonts.nunito(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -124,7 +167,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                   const Spacer(flex: 2),
 
-                  // ── Error Message ──
+                  // ── Error ────────────────────────────────────
                   if (_error != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -132,8 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         color: AppTheme.errorRed.withValues(alpha: 0.15),
                         borderRadius: AppTheme.radiusMedium,
                         border: Border.all(
-                          color: AppTheme.errorRed.withValues(alpha: 0.3),
-                        ),
+                            color: AppTheme.errorRed.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
@@ -144,9 +186,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             child: Text(
                               _error!,
                               style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
+                                  color: Colors.white, fontSize: 13),
                             ),
                           ),
                         ],
@@ -155,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     const SizedBox(height: 20),
                   ],
 
-                  // ── Google Sign-In Button ──
+                  // ── Google Sign-In Button ─────────────────────
                   SizedBox(
                     width: double.infinity,
                     height: 56,
@@ -174,8 +214,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                       child: _isLoading
                           ? const SizedBox(
-                              width: 24,
-                              height: 24,
+                              width: 24, height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: AppTheme.primaryGreen,
@@ -184,10 +223,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                // Google "G" logo
                                 Container(
-                                  width: 24,
-                                  height: 24,
+                                  width: 24, height: 24,
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(4),
@@ -205,7 +242,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 ),
                                 const SizedBox(width: 12),
                                 Text(
-                                  'Continue with Google',
+                                  isTamil
+                                      ? 'Google மூலம் உள்நுழைக'
+                                      : 'Continue with Google',
                                   style: GoogleFonts.poppins(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -219,9 +258,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                   const SizedBox(height: 24),
 
-                  // ── Footer ──
+                  // ── Footer ───────────────────────────────────
                   Text(
-                    'By continuing, you agree to our Terms of Service\nand Privacy Policy',
+                    isTamil
+                        ? 'தொடர்வதன் மூலம், நிபந்தனைகளை ஏற்கிறீர்கள்'
+                        : 'By continuing, you agree to our Terms of Service\nand Privacy Policy',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.nunito(
                       fontSize: 12,

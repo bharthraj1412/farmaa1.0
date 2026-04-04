@@ -25,7 +25,7 @@ class GoogleAuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
     serverClientId:
-        '603178299511-c40kmarpdjg1ntjjcebgmnlj7t521dvg.apps.googleusercontent.com',
+        '603178299511-igtc5nncdi8a56bt0c9a0rrks4uv9s9b.apps.googleusercontent.com',
   );
 
   /// Performs Google Sign-In, authenticates with Firebase, returns the ID token and user info.
