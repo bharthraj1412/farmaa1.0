@@ -1,7 +1,9 @@
 """AI Advisor router – Real LLM via OpenRouter + farming knowledge fallback."""
 
 import os
-import httpx
+import json
+import urllib.request
+import asyncio
 import logging
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -163,11 +165,18 @@ async def _call_openrouter(messages: List[dict]) -> str:
         "temperature": 0.7,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
+    def _sync_call():
+        req = urllib.request.Request(
+            url, 
+            data=json.dumps(payload).encode("utf-8"), 
+            headers=headers, 
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=30.0) as response:
+            return json.loads(response.read().decode())
+
+    data = await asyncio.to_thread(_sync_call)
+    return data["choices"][0]["message"]["content"]
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
