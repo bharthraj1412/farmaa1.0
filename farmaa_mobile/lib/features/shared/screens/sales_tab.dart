@@ -46,7 +46,13 @@ class _FarmerOrdersScreenState extends ConsumerState<FarmerOrdersScreen> {
 
   Future<void> _updateStatus(String orderId, String status) async {
     try {
-      await OrderService.instance.updateOrderStatus(orderId, status);
+      final order = _orders.firstWhere((o) => o.id == orderId);
+      await OrderService.instance.updateOrderStatus(
+        orderId, 
+        status,
+        cropName: order.cropName,
+        isFarmerAction: true,
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
