@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
@@ -46,7 +45,7 @@ class _FarmerAIScreenState extends ConsumerState<FarmerAIScreen>
               child: const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
-            Text('${l.aiAssistant}',
+            Text(l.aiAssistant,
                 style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
@@ -58,7 +57,7 @@ class _FarmerAIScreenState extends ConsumerState<FarmerAIScreen>
           labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           unselectedLabelStyle: const TextStyle(fontSize: 13),
           tabs: [
-            Tab(text: '💬 Chat'),
+            const Tab(text: '💬 Chat'),
             Tab(text: '🌾 ${l.yieldPrediction}'),
             Tab(text: '♻️ ${l.sustainability}'),
           ],
