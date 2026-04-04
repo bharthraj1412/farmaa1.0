@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:ui';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -79,7 +80,7 @@ class NotificationService {
           playSound: true,
           enableVibration: true,
           enableLights: true,
-          ledColor: Color(0xFF1A5E20),
+          ledColor: const Color(0xFF1A5E20),
         ),
       );
 
