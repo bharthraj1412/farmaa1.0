@@ -1,0 +1,16 @@
+﻿Launching lib\main.dart on RMX3868 in debug mode...
+Running Gradle task 'assembleDebug'...                             37.2s
+flutter : Error: Gradle build failed to produce an 
+.apk file. It's likely that this file was generated 
+under G:\farmaa project\farmaa_mobile\build, but 
+the tool couldn't find it.
+At line:1 char:55
++ ... _HOME = "C:\Program Files\Java\jdk-17.0.16"; 
+flutter run 2>&1 | Out-F ...
++                                                  
+~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: 
+    Gradle b...uldn't find it.:String) [], RemoteE  
+  xception
+    + FullyQualifiedErrorId : NativeCommandError
+ 

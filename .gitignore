@@ -1,0 +1,44 @@
+# Root gitignore for Farmaa project
+
+# Ignore build folders
+**/build/
+**/dist/
+**/.dart_tool/
+**/.pub-cache/
+**/.pub/
+**/apks/
+**/*.apk
+
+# Ignore python environments
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+
+# Ignore IDE files
+**/.idea/
+**/.vscode/
+
+# Ignore environment/secret files
+**/.env
+**/.env.development
+**/.env.production
+**/*.log
+
+# Ignore test & analysis output files
+**/pytest_*.txt
+**/results*.txt
+**/flutter_analyze_results*.txt
+**/analyzer_output.txt
+**/issues.json
+
+# Ignore large binary files
+bfg.jar
+**/*.jar
+
+# Ignore Firebase credentials
+**/firebase_credentials.json
+**/google-services.json
+**/GoogleService-Info.plist
+

@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+.env
+.env.development
+.env.production
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.idea/
+.vscode/
+*.db
+
+# Debug and test output files
+*.log
+out.txt
+pytest_output.txt
+pytest_output.utf8.txt
+
+# One-off debug scripts
+test_fixes.py
+verify_search.py
+verify_syntax.py
+
+# Nested mobile app directory
+farmaa_mobile/
