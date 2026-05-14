@@ -1,0 +1,5 @@
+﻿
+ERROR: JAVA_HOME is set to an invalid directory: C:\Program Files\Eclipse Adoptium\jdk-17.*.*\ (or similar based on your install)
+
+Please set the JAVA_HOME variable in your environment to match the
+location of your Java installation.
