@@ -9,13 +9,20 @@ import '../constants/app_constants.dart';
 import '../models/user_model.dart';
 import 'firebase_auth_service.dart';
 import 'google_auth_service.dart';
-
+import '../config/environment_config.dart';
 /// Handles all authentication operations: Firebase email/password, token storage.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
-  final _dio = ApiClient().dio;
+  // Use a dedicated Dio instance without the auth interceptor to prevent infinite loops
+  final _dio = Dio(BaseOptions(
+    baseUrl: EnvironmentConfig.baseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
+    contentType: 'application/json',
+  ));
+  
   static const _storage = FlutterSecureStorage();
 
   // No SharedPreferences init needed — all data now in secure storage

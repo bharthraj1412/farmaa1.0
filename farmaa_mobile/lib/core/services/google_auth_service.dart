@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../api/api_client.dart';
 import '../models/user_model.dart';
+import 'package:dio/dio.dart';
+import '../config/environment_config.dart';
 
 /// Handles Google Sign-In flow via Firebase Auth and integration with the Farmaa backend.
 class GoogleAuthService {
@@ -45,7 +47,14 @@ class GoogleAuthService {
 
     // 5. Sync with backend using Firebase ID token
     try {
-      final response = await ApiClient().dio.post('/auth/firebase', data: {
+      final dio = Dio(BaseOptions(
+        baseUrl: EnvironmentConfig.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        contentType: 'application/json',
+      ));
+      
+      final response = await dio.post('/auth/exchange_token', data: {
         'firebase_id_token': firebaseToken ?? idToken,
         'email': googleUser.email,
         'name': googleUser.displayName ?? 'User',
