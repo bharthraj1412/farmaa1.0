@@ -168,7 +168,7 @@ def _init_firebase():
         if not firebase_admin._apps:
             # Try to load service account from env var or file
             cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
-            cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON")
+            cred_json = os.getenv("FIREBASE_CREDENTIALS_JSON") or os.getenv("FIREBASE_CREDENTIALS_JSON1")
             
             if cred_json:
                 import json
