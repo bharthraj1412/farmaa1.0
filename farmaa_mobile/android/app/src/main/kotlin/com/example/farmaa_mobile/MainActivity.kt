@@ -1,4 +1,4 @@
-package com.example.farmaa_mobile
+package farmaa.app
 
 import io.flutter.embedding.android.FlutterActivity
 
