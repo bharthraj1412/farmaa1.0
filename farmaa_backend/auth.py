@@ -173,6 +173,8 @@ def _init_firebase():
             if cred_json:
                 import json
                 cred_dict = json.loads(cred_json)
+                if "private_key" in cred_dict:
+                    cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
                 cred = fb_credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
             elif cred_path and os.path.exists(cred_path):
@@ -189,8 +191,7 @@ def _init_firebase():
         logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
     except Exception as e:
         logger.error(f"[Farmaa] Firebase Admin SDK init failed: {e}")
-        # Do NOT set _firebase_initialized to True on failure.
-        # This allows retry on the next request.
+        raise ValueError(f"Firebase Admin SDK init failed: {e}")
 
 
 def verify_firebase_id_token(id_token: str) -> dict:
@@ -215,9 +216,11 @@ def verify_firebase_id_token(id_token: str) -> dict:
             "picture": decoded_token.get("picture"),
             "email_verified": decoded_token.get("email_verified", False),
         }
+    except ValueError as ve:
+        raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
         logger.debug(f"[Farmaa] Firebase token verification failed: {e}")
-        return None
+        raise HTTPException(status_code=401, detail=f"Firebase token verification failed: {e}")
 
 
 # ── Google ID Token Verification ─────────────────────────────────────────────
