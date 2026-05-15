@@ -114,23 +114,65 @@ class CropService {
 
   // ── Market Prices ─────────────────────────────────────────
 
-  /// Fetches live market prices for a crop category and district.
-  /// Falls back to empty list if backend endpoint is unavailable.
+  /// Fetches live market prices, optionally filtered.
   Future<List<Map<String, dynamic>>> getMarketPrices({
     String? commodity,
     String? district,
+    String? category,
   }) async {
     try {
       final response = await _dio.get('/market/prices', queryParameters: {
         if (commodity != null) 'commodity': commodity,
         if (district != null) 'district': district,
+        if (category != null) 'category': category,
       });
       final items = (response.data as List<dynamic>?) ?? [];
       return items.map((e) => e as Map<String, dynamic>).toList();
     } catch (e) {
-      debugPrint('[CropService] Market prices endpoint unavailable: $e');
-      // Return empty list — market_prices_screen.dart has its own demo fallback
+      debugPrint('[CropService] Market prices unavailable: $e');
       return [];
+    }
+  }
+
+  /// Fetches available grain categories.
+  Future<List<String>> getMarketCategories() async {
+    try {
+      final response = await _dio.get('/market/prices/categories');
+      final data = response.data as Map<String, dynamic>;
+      return List<String>.from(data['categories'] ?? []);
+    } catch (e) {
+      debugPrint('[CropService] Categories unavailable: $e');
+      return ['Rice', 'Wheat', 'Millet', 'Maize', 'Pulses', 'Barley', 'Oilseed'];
+    }
+  }
+
+  /// Fetches price trend data for a grain.
+  Future<Map<String, dynamic>> getMarketTrends({
+    required String cropName,
+    String? marketName,
+    int days = 30,
+  }) async {
+    try {
+      final response = await _dio.get('/market/prices/trends', queryParameters: {
+        'crop_name': cropName,
+        if (marketName != null) 'market_name': marketName,
+        'days': days,
+      });
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[CropService] Trends unavailable: $e');
+      return {};
+    }
+  }
+
+  /// Fetches price summary for home widgets.
+  Future<Map<String, dynamic>> getMarketSummary() async {
+    try {
+      final response = await _dio.get('/market/prices/summary');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[CropService] Summary unavailable: $e');
+      return {};
     }
   }
 }
