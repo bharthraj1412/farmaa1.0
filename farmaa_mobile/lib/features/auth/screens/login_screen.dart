@@ -48,7 +48,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+        String msg = e.toString();
+        msg = msg.replaceAll(RegExp(r'Exception:\s*'), '').trim();
+        if (msg.isEmpty) msg = 'Login failed. Please try again.';
+        setState(() => _errorMessage = msg);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -65,7 +68,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(authProvider.notifier).loginWithGoogle();
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+        String msg = e.toString();
+        msg = msg.replaceAll(RegExp(r'Exception:\s*'), '').trim();
+        if (msg.isEmpty) msg = 'Google sign-in failed. Please try again.';
+        setState(() => _errorMessage = msg);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -96,7 +102,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+        String msg = e.toString();
+        msg = msg.replaceAll(RegExp(r'Exception:\s*'), '').trim();
+        if (msg.isEmpty) msg = 'Failed to send reset email. Please try again.';
+        setState(() => _errorMessage = msg);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

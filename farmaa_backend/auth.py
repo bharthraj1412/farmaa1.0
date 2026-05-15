@@ -17,10 +17,17 @@ logger = logging.getLogger(__name__)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-# Enforce strong secret in production
+# Warn about weak/missing secret in production but DON'T crash the process.
+# Crashing at import time causes Vercel to return 500 on ALL endpoints,
+# including /health, making the deployment completely unrecoverable.
 if ENVIRONMENT == "production" and (not SECRET_KEY or SECRET_KEY.startswith("farmaa-dev")):
-    logger.critical("[Farmaa] CRITICAL: SECRET_KEY is not set or using dev default in production!")
-    raise RuntimeError("SECRET_KEY must be set to a strong value in production")
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(48)
+    logger.critical(
+        "[Farmaa] CRITICAL: SECRET_KEY is not set or using dev default in production! "
+        "A random key has been generated for this process. "
+        "Set SECRET_KEY in your Vercel Dashboard → Settings → Environment Variables."
+    )
 
 # Fallback for development only
 if not SECRET_KEY:
@@ -173,8 +180,6 @@ def _init_firebase():
             if cred_json:
                 import json
                 cred_dict = json.loads(cred_json)
-                if "private_key" in cred_dict:
-                    cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
                 cred = fb_credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred)
             elif cred_path and os.path.exists(cred_path):
@@ -191,7 +196,8 @@ def _init_firebase():
         logger.info("[Farmaa] Firebase Admin SDK initialized successfully")
     except Exception as e:
         logger.error(f"[Farmaa] Firebase Admin SDK init failed: {e}")
-        raise ValueError(f"Firebase Admin SDK init failed: {e}")
+        # Do NOT set _firebase_initialized to True on failure.
+        # This allows retry on the next request.
 
 
 def verify_firebase_id_token(id_token: str) -> dict:
@@ -216,11 +222,9 @@ def verify_firebase_id_token(id_token: str) -> dict:
             "picture": decoded_token.get("picture"),
             "email_verified": decoded_token.get("email_verified", False),
         }
-    except ValueError as ve:
-        raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
         logger.debug(f"[Farmaa] Firebase token verification failed: {e}")
-        raise HTTPException(status_code=401, detail=f"Firebase token verification failed: {e}")
+        return None
 
 
 # ── Google ID Token Verification ─────────────────────────────────────────────

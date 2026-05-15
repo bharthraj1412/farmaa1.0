@@ -51,8 +51,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
       if (mounted) {
-        setState(() =>
-            _errorMessage = e.toString().replaceAll('Exception: ', ''));
+        String msg = e.toString();
+        // Strip Exception:/DioException wrapper text
+        msg = msg.replaceAll(RegExp(r'Exception:\s*'), '').trim();
+        if (msg.isEmpty) msg = 'Registration failed. Please try again.';
+        setState(() => _errorMessage = msg);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

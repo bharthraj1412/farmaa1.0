@@ -62,9 +62,10 @@ class GoogleAuthService {
       });
 
       final data = response.data as Map<String, dynamic>;
-      final token = firebaseToken ?? data['access_token']?.toString() ?? '';
+      // Use the backend-issued JWT, NOT the Firebase token
+      final backendToken = data['access_token'] as String;
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-      return (user: user, token: token);
+      return (user: user, token: backendToken);
     } catch (e) {
       debugPrint('[GoogleAuth] Backend sync failed, creating local session: $e');
       return _createLocalSession(googleUser, firebaseToken ?? '');

@@ -37,12 +37,12 @@ class EnvironmentConfig {
 
   /// Supabase configuration
   static String get supabaseUrl {
-    return get('SUPABASE_URL') ?? 'https://qhllzkyklmvvvqkpzhbj.supabase.co';
+    return get('SUPABASE_URL') ?? 'https://ovqejdexkidziyeeflak.supabase.co';
   }
 
   static String get supabaseAnonKey {
     return get('SUPABASE_ANON_KEY') ??
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFobGx6a3lrbG12dnZxa3B6aGJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTQ5MjgsImV4cCI6MjA4ODQ3MDkyOH0.xi1saJm4uW9o4luK0_dvWdi2lM1xA50dStIqUGEE4wM';
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92cWVqZGV4a2lkeml5ZWVmbGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NzU2MDUsImV4cCI6MjA5NDM1MTYwNX0.Zm-ZHScYEwV7DNVjfq7Dy4RIHRteKYUCtsy6Z2gxW6M';
   }
 
   /// API configuration

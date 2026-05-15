@@ -53,16 +53,14 @@ class _ProfileCompletionScreenState
 
     setState(() => _isLoading = true);
     try {
-      await ref.read(authProvider.notifier).completeProfile(
+      await ref.read(authProvider.notifier).updateProfile(
             name: _nameCtrl.text.trim(),
-            mobileNumber: _mobileCtrl.text.trim(),
+            phone: _mobileCtrl.text.trim(),
             district: _districtCtrl.text.trim(),
-            postalCode: _postalCodeCtrl.text.trim(),
-            address: _addressCtrl.text.trim(),
-            companyName: _companyCtrl.text.trim().isNotEmpty
+            village: '${_addressCtrl.text.trim()} - ${_postalCodeCtrl.text.trim()}',
+            organization: _companyCtrl.text.trim().isNotEmpty
                 ? _companyCtrl.text.trim()
                 : null,
-            role: _selectedRole,   // FIX: pass chosen role
           );
     } catch (e) {
       if (mounted) {

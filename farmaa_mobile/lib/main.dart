@@ -31,11 +31,24 @@ void main() async {
       url: EnvironmentConfig.supabaseUrl,
       anonKey: EnvironmentConfig.supabaseAnonKey,
     );
-    await Firebase.initializeApp();
-    await NotificationService.instance.init();
-    debugPrint('[Farmaa] Background services initialized successfully.');
+    debugPrint('[Farmaa] Supabase initialized successfully.');
   } catch (e) {
-    debugPrint('[Farmaa] Service initialization failure: $e');
+    debugPrint('[Farmaa] Supabase initialization failed: $e');
+    debugPrint('[Farmaa] Check SUPABASE_URL and SUPABASE_ANON_KEY in .env');
+  }
+
+  try {
+    await Firebase.initializeApp();
+    debugPrint('[Farmaa] Firebase initialized successfully.');
+  } catch (e) {
+    debugPrint('[Farmaa] Firebase initialization failed: $e');
+  }
+
+  try {
+    await NotificationService.instance.init();
+    debugPrint('[Farmaa] Notification service initialized.');
+  } catch (e) {
+    debugPrint('[Farmaa] Notification service init failed: $e');
   }
 
   // Enable font fetching to ensure premium typography loads

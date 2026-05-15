@@ -90,7 +90,7 @@ def reject_user(user_id: str, db: Session = Depends(get_db)):
 
 @router.get("/users")
 def list_all_users(
-    role: str = None,
+    role: str | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),

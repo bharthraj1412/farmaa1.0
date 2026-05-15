@@ -23,19 +23,20 @@ if DATABASE_URL:
 
 if DATABASE_URL:
     try:
-        pool_size = int(os.getenv("DB_POOL_SIZE", "10"))
-        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "20"))
+        pool_size = int(os.getenv("DB_POOL_SIZE", "3"))
+        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "5"))
         engine = create_engine(
             DATABASE_URL,
             pool_size=pool_size,
             max_overflow=max_overflow,
             pool_pre_ping=True,
-            pool_recycle=600,
+            pool_recycle=300,
+            pool_timeout=10,
             echo=False,  # Set to True for SQL logging in development
         )
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         
-        # Test database connection
+        # Test database connection function (available for health checks)
         def test_connection():
             try:
                 with engine.connect() as connection:
@@ -46,8 +47,10 @@ if DATABASE_URL:
                 logger.error(f"[Farmaa] Database connection failed: {e}")
                 return False
         
-        # Test connection on startup
-        test_connection()
+        # NOTE: We do NOT call test_connection() at module load time.
+        # pool_pre_ping=True already handles connection verification on each use.
+        # Calling it here adds latency to every Vercel serverless cold start.
+        logger.info("[Farmaa] Database engine created (pool_pre_ping=True for auto-verification)")
         
     except Exception as e:
         logger.error(f"[Farmaa] Failed to create database engine: {e}")

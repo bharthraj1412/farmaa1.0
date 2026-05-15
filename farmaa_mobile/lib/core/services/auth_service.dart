@@ -4,93 +4,117 @@ import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../api/api_client.dart';
+
 import '../constants/app_constants.dart';
 import '../models/user_model.dart';
 import 'firebase_auth_service.dart';
 import 'google_auth_service.dart';
-import '../config/environment_config.dart';
-/// Handles all authentication operations: Firebase email/password, token storage.
+
+/// Extracts a clean, user-friendly message from a DioException.
+/// Prefers the server's `detail` field, then Dio's own message, then a fallback.
+String _parseError(Object e) {
+  if (e is DioException) {
+    // Prefer server-provided error message
+    final data = e.response?.data;
+    if (data is Map && data.containsKey('detail')) {
+      return data['detail'].toString();
+    }
+    // Use Dio message if it's clean (not the verbose default)
+    final msg = e.message ?? '';
+    if (msg.isNotEmpty && !msg.contains('DioException')) {
+      return msg;
+    }
+    // Status-code fallback
+    final status = e.response?.statusCode;
+    switch (status) {
+      case 400: return 'Invalid request. Please check your input.';
+      case 401: return 'Invalid credentials. Please try again.';
+      case 409: return 'Account already exists with this email or phone.';
+      case 422: return 'Validation error. Please check your input.';
+      case 500: return 'Server error. Please try again later.';
+      default:
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout) {
+          return 'Connection timed out. Please check your internet.';
+        }
+        if (e.type == DioExceptionType.connectionError) {
+          return 'Cannot connect to server. Please check your internet connection.';
+        }
+        return 'Something went wrong (code: $status). Please try again.';
+    }
+  }
+  return e.toString().replaceAll('Exception: ', '');
+}
+
+/// Handles all authentication operations: direct backend auth, token storage.
 class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
-  // Use a dedicated Dio instance without the auth interceptor to prevent infinite loops
-  final _dio = Dio(BaseOptions(
-    baseUrl: EnvironmentConfig.baseUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    contentType: 'application/json',
-  ));
-  
+  // Create a fresh Dio for each auth request so it always uses the current
+  // AppConstants.baseUrl (which may change via discovery or manual config).
+  // This instance intentionally has NO auth interceptor to prevent infinite
+  // loops (ApiClient's interceptor calls refreshBackendToken → re-enters).
+  Dio _createDio() => Dio(BaseOptions(
+        baseUrl: AppConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        contentType: 'application/json',
+      ));
+
   static const _storage = FlutterSecureStorage();
 
-  // No SharedPreferences init needed — all data now in secure storage
-
-  // ── Firebase Email/Password Auth Flow ──────────────────────
+  // ── Direct Backend Auth (email/password — no Firebase dependency) ───────
 
   Future<({UserModel user, String token})> register({
     required String name,
     required String email,
     required String password,
   }) async {
-    // 1. Create user in Firebase Auth
-    await FirebaseAuthService.instance.register(
-      email: email,
-      password: password,
-    );
+    try {
+      // Call backend /auth/register directly (bcrypt-hashed, no Firebase needed)
+      final response = await _createDio().post('/auth/register', data: {
+        'name': name,
+        'email': email,
+        'password': password,
+      });
 
-    // 2. Get Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
-      throw Exception('Failed to get Firebase token after registration');
+      final data = response.data as Map<String, dynamic>;
+      final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+      final backendToken = data['access_token'] as String;
+      final refreshToken = data['refresh_token'] as String?;
+
+      await _persistSession(
+          token: backendToken, refreshToken: refreshToken, user: user);
+      return (user: user, token: backendToken);
+    } on DioException catch (e) {
+      throw Exception(_parseError(e));
     }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
-      'name': name,
-      'email': email,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    // Store the backend-issued JWT, not the Firebase token
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
   }
 
   Future<({UserModel user, String token})> login({
     required String email,
     required String password,
   }) async {
-    // 1. Sign in with Firebase Auth
-    await FirebaseAuthService.instance.login(
-      email: email,
-      password: password,
-    );
+    try {
+      // Call backend /auth/login directly (bcrypt-verified, no Firebase needed)
+      final response = await _createDio().post('/auth/login', data: {
+        'email_or_phone': email,
+        'password': password,
+      });
 
-    // 2. Get Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
-      throw Exception('Failed to get Firebase token after login');
+      final data = response.data as Map<String, dynamic>;
+      final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+      final backendToken = data['access_token'] as String;
+      final refreshToken = data['refresh_token'] as String?;
+
+      await _persistSession(
+          token: backendToken, refreshToken: refreshToken, user: user);
+      return (user: user, token: backendToken);
+    } on DioException catch (e) {
+      throw Exception(_parseError(e));
     }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
-      'email': email,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    // Store the backend-issued JWT, not the Firebase token
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
   }
 
   // ── Password Reset ────────────────────────────────────────
@@ -101,30 +125,53 @@ class AuthService {
 
   // ── Token Refresh ─────────────────────────────────────────
 
-  /// Refreshes the backend JWT using a freshly fetched Firebase ID token.
+  /// Refreshes the backend JWT using the stored refresh token.
+  /// Falls back to Firebase ID token exchange for Google-auth users.
   Future<String?> refreshBackendToken() async {
     try {
-      final user = fb.FirebaseAuth.instance.currentUser;
-      if (user == null) return null;
+      // 1. Try stored refresh token first (fast path)
+      final refreshToken =
+          await _storage.read(key: AppConstants.refreshTokenKey);
+      if (refreshToken != null) {
+        try {
+          final response = await _createDio().post(
+            '/auth/refresh',
+            queryParameters: {'refresh_token': refreshToken},
+          );
+          final data = response.data as Map<String, dynamic>;
+          final newToken = data['access_token'] as String;
+          await _storage.write(key: AppConstants.jwtKey, value: newToken);
+          return newToken;
+        } catch (e) {
+          debugPrint('[AuthService] Refresh token exchange failed: $e');
+        }
+      }
 
-      // 1. Force refresh of the Firebase ID token
-      final idToken = await user.getIdToken(true);
-      if (idToken == null) return null;
+      // 2. Fallback: Firebase token refresh (for Google-auth sessions)
+      final firebaseUser = fb.FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        final idToken = await firebaseUser.getIdToken(true);
+        if (idToken != null) {
+          final response =
+              await _createDio().post('/auth/exchange_token', data: {
+            'firebase_id_token': idToken,
+            'email': firebaseUser.email,
+          });
+          final data = response.data as Map<String, dynamic>;
+          final newToken = data['access_token'] as String;
+          final newRefresh = data['refresh_token'] as String?;
+          await _storage.write(key: AppConstants.jwtKey, value: newToken);
+          if (newRefresh != null) {
+            await _storage.write(
+                key: AppConstants.refreshTokenKey, value: newRefresh);
+          }
+          return newToken;
+        }
+      }
 
-      // 2. Exchange for a new backend JWT
-      final response = await _dio.post('/auth/exchange_token', data: {
-        'firebase_id_token': idToken,
-        'email': user.email,
-      });
-
-      final data = response.data as Map<String, dynamic>;
-      final backendToken = data['access_token'] as String;
-
-      // 3. Update secure storage
-      await _storage.write(key: AppConstants.jwtKey, value: backendToken);
-      return backendToken;
+      return null;
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
+      debugPrint('[AuthService] Token refresh failed: $e');
       return null;
     }
   }
@@ -133,19 +180,23 @@ class AuthService {
 
   Future<void> _persistSession({
     required String token,
+    String? refreshToken,
     required UserModel user,
   }) async {
     await Future.wait([
       _storage.write(key: AppConstants.jwtKey, value: token),
-      _storage.write(key: AppConstants.userKey, value: jsonEncode(user.toJson())),
+      _storage.write(
+          key: AppConstants.userKey, value: jsonEncode(user.toJson())),
+      if (refreshToken != null)
+        _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken),
     ]);
   }
 
   /// Loads the persisted user from secure storage.
   Future<UserModel?> getPersistedUser() async {
-    // Check Firebase auth state first
-    final firebaseUser = fb.FirebaseAuth.instance.currentUser;
-    if (firebaseUser == null) return null;
+    // Check if we have a stored JWT (primary session indicator)
+    final jwt = await _storage.read(key: AppConstants.jwtKey);
+    if (jwt == null) return null;
 
     // Return persisted user data from secure storage
     final raw = await _storage.read(key: AppConstants.userKey);
@@ -157,15 +208,23 @@ class AuthService {
     }
   }
 
-  /// Returns true if a Firebase user is currently signed in.
+  /// Returns true if a session JWT exists.
   Future<bool> isLoggedIn() async {
-    return fb.FirebaseAuth.instance.currentUser != null;
+    final jwt = await _storage.read(key: AppConstants.jwtKey);
+    return jwt != null;
   }
 
   /// Clears all session data and logs the user out.
   Future<void> logout() async {
     try {
-      await _dio.post('/auth/logout');
+      // Try to notify the backend (best-effort)
+      final token = await _storage.read(key: AppConstants.jwtKey);
+      if (token != null) {
+        await _createDio().post(
+          '/auth/logout',
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
+        );
+      }
     } on DioException {
       // Ignore network errors on logout
     } finally {
@@ -177,9 +236,18 @@ class AuthService {
 
   // ── Profile ───────────────────────────────────────────────
 
+  /// Helper to get auth options with current JWT.
+  Future<Options> _authOptions() async {
+    final token = await _storage.read(key: AppConstants.jwtKey);
+    return Options(headers: {
+      if (token != null) 'Authorization': 'Bearer $token',
+    });
+  }
+
   /// Fetches the current user's full profile from the server.
   Future<UserModel> getProfile() async {
-    final response = await _dio.get('/auth/me');
+    final response =
+        await _createDio().get('/auth/me', options: await _authOptions());
     return UserModel.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -192,14 +260,18 @@ class AuthService {
     String? district,
     String? organization,
   }) async {
-    final response = await _dio.patch('/auth/me', data: {
-      'name': name,
-      if (phone != null && phone.isNotEmpty) 'phone': phone,
-      if (email != null && email.isNotEmpty) 'email': email,
-      if (village != null) 'village': village,
-      if (district != null) 'district': district,
-      if (organization != null) 'org': organization,
-    });
+    final response = await _createDio().patch(
+      '/auth/me',
+      data: {
+        'name': name,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (village != null) 'village': village,
+        if (district != null) 'district': district,
+        if (organization != null) 'org': organization,
+      },
+      options: await _authOptions(),
+    );
     final user = UserModel.fromJson(response.data as Map<String, dynamic>);
     await _storage.write(
       key: AppConstants.userKey,
@@ -208,30 +280,35 @@ class AuthService {
     return user;
   }
 
-
   /// Login with Google Sign-In via Firebase Auth.
   Future<({UserModel user, String token})> loginWithGoogle() async {
-    // 1. Perform Google Sign-In
-    final result = await GoogleAuthService.instance.signIn();
+    try {
+      // 1. Perform Google Sign-In
+      final result = await GoogleAuthService.instance.signIn();
 
-    // 2. Get fresh Firebase ID token
-    final idToken = await FirebaseAuthService.instance.getIdToken();
-    if (idToken == null) {
+      // 2. Get fresh Firebase ID token
+      final idToken = await FirebaseAuthService.instance.getIdToken();
+      if (idToken == null) {
         throw Exception('Failed to get Firebase token after Google login');
+      }
+
+      // 3. Exchange Firebase token for backend JWT
+      final response = await _createDio().post('/auth/exchange_token', data: {
+        'firebase_id_token': idToken,
+        'name': result.user.name,
+        'email': result.user.email,
+      });
+
+      final data = response.data as Map<String, dynamic>;
+      final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
+      final backendToken = data['access_token'] as String;
+      final refreshToken = data['refresh_token'] as String?;
+
+      await _persistSession(
+          token: backendToken, refreshToken: refreshToken, user: user);
+      return (user: user, token: backendToken);
+    } on DioException catch (e) {
+      throw Exception(_parseError(e));
     }
-
-    // 3. Exchange Firebase token for backend JWT
-    final response = await _dio.post('/auth/exchange_token', data: {
-      'firebase_id_token': idToken,
-      'name': result.user.name,
-      'email': result.user.email,
-    });
-
-    final data = response.data as Map<String, dynamic>;
-    final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-    final backendToken = data['access_token'] as String;
-
-    await _persistSession(token: backendToken, user: user);
-    return (user: user, token: backendToken);
   }
 }
